@@ -144,4 +144,40 @@ public class RegexTest
     assertTrue(regex.match("ae"));
     assertFalse(regex.match("abfe"));
   }
+
+  public void testExactRangeQuantifier() {
+    Regex regex = new Regex("a{3}");
+    assertTrue(regex.match("aaa"));
+    assertFalse(regex.match("aa"));
+    assertFalse(regex.match(""));
+    assertFalse(regex.match("aaaa"));
+    assertFalse(regex.match("a{3}"));
+    assertFalse(regex.match("aaab"));
+  }
+
+  public void testSimpleRangeQuantified() {
+    Regex regex = new Regex("(ab){2,3}");
+    assertTrue(regex.match("abab"));
+    assertTrue(regex.match("ababab"));
+    assertFalse(regex.match("ab"));
+    assertFalse(regex.match("ababababab"));
+    assertFalse(regex.match("abb"));
+    assertFalse(regex.match("aaab"));
+    assertFalse(regex.match("aabab"));
+    assertFalse(regex.match("ababb"));
+    assertFalse(regex.match("(ab){2, 3}"));
+  }
+
+  public void testOpenRangeQuantifier() {
+    Regex regex = new Regex("(a|b){4,}");
+    assertTrue(regex.match("aaaa"));
+    assertTrue(regex.match("ababab"));
+    assertTrue(regex.match("bbbbaaa"));
+    assertTrue(regex.match("bbaa"));
+    assertFalse(regex.match("a{4}"));
+    assertFalse(regex.match("aaa"));
+    assertFalse(regex.match("aba"));
+    assertFalse(regex.match(""));
+    assertFalse(regex.match("aabbc"));
+  }
 }

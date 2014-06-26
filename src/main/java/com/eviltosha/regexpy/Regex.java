@@ -36,25 +36,16 @@ public class Regex
     }
 
     abstract int matchPart(String str, int strPos);
+    void clear() { myLastVisitPos = -1; }
     boolean isEnd() { return false; }
     void addNextNode(Node node) {
       myNextNodes.add(node);
-      // FIXME: debug output, remove before deployment
-//      System.out.println("Connecting nodes: ");
-//      print();
-//      node.print();
-//      System.out.println("-------");
     }
-
-    // FIXME: debug method, remove before deployment
-    abstract void print();
   }
 
   class EmptyNode extends Node {
     @Override
     int matchPart(String str, int strPos) { return 0; }
-    @Override
-    void print() { System.out.println("Empty node"); }
   }
 
   class EndNode extends EmptyNode {
@@ -65,23 +56,27 @@ public class Regex
 
   class OpenGroupNode extends EmptyNode {
     int myGroupId;
-    OpenGroupNode(int id) { myGroupId = id; }
-    @Override
-    void print() { System.out.println("Open group node " + myGroupId); }
+    OpenGroupNode(int id) {
+      super();
+      myGroupId = id;
+    }
   }
 
   class CloseGroupNode extends EmptyNode {
     int myGroupId;
-    CloseGroupNode(int id) { myGroupId = id; }
-    @Override
-    void print() { System.out.println("Close group node " + myGroupId); }
+    CloseGroupNode(int id) {
+      super();
+      myGroupId = id;
+    }
   }
 
   class SymbolNode extends Node {
     char mySymbol;
 
-    SymbolNode(char symbol) { mySymbol = symbol; }
-
+    SymbolNode(char symbol) {
+      super();
+      mySymbol = symbol;
+    }
     @Override
     int matchPart(String str, int pos) {
       // FIXME: is there some clever way to check without explicit check?
@@ -91,8 +86,51 @@ public class Regex
       // FIXME: is it ok to return -1 when no match is possible?
       return -1;
     }
+  }
+
+  class GateNode extends Node {
+    boolean myOpen;
+
+    GateNode() {
+      super();
+      myOpen = true;
+    }
+
+    void setOpen(boolean open) { myOpen = open; }
     @Override
-    void print() { System.out.println("Symbol node: " + mySymbol); }
+    int matchPart(String str, int pos) {
+      // FIXME: use ternary if?
+      if (myOpen) { return 0; } else { return -1; }
+    }
+  }
+
+  class RangeQuantifierNode extends Node {
+    int myCounter;
+    int myRangeBegin, myRangeEnd;
+    // FIXME: does this ruin consistency of the Node's classes?
+    GateNode myGateNode;
+    // FIXME: is it ok to use -1 as an indicator of infinity?
+    RangeQuantifierNode(GateNode gateNode, int rangeBegin, int rangeEnd) {
+      super();
+      myCounter = 0;
+      myGateNode = gateNode;
+      myRangeBegin = rangeBegin;
+      myRangeEnd = rangeEnd;
+    }
+    @Override
+    void clear() {
+      super.clear();
+      myCounter = 0;
+    }
+    @Override
+    int matchPart(String str, int pos) {
+      ++myCounter;
+      if (myRangeEnd > -1 && myCounter > myRangeEnd) {
+        return -1;
+      }
+      myGateNode.setOpen(myRangeBegin <= myCounter && (myCounter <= myRangeEnd || myRangeEnd == -1));
+      return 0;
+    }
   }
 
   // FIXME: is this method too long?
@@ -106,10 +144,13 @@ public class Regex
       boolean quantifierApplicable = true;
       char nextChar = regex.charAt(pos);
       switch (nextChar) {
+        case '{':
         case '*':
         case '+':
           // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
           throw new RegexSyntaxException("Incorrect use of quantifier", regex);
+        case '}':
+          throw new RegexSyntaxException("Unmatched '}'", regex);
         case '|':
           curNode.addNextNode(endNode);
           newNode = startNode;
@@ -145,28 +186,73 @@ public class Regex
             construct(groupStartNode, newNode, regex, openGroupPos, pos - 1, groupId + 1);
             groupId = newGroupId;
           } else {
-            throw new RegexSyntaxException("Unmatched opening parenthesis", regex);
+            throw new RegexSyntaxException("Unmatched '('", regex);
           }
 
           curNode.addNextNode(openNode);
           curNode = openNode;
           break;
         case ')':
-          throw new RegexSyntaxException("Unpaired closing parenthesis", regex);
+          throw new RegexSyntaxException("Unpaired ')'", regex);
         default:
           newNode = new SymbolNode(nextChar);
-          newNode.print();
           curNode.addNextNode(newNode);
           ++pos;
       }
       Node newEmptyNode = new EmptyNode();
-      newNode.addNextNode(newEmptyNode);
-      // FIXME: code dubbing, possibly extract or refactor
+      // quantifier application (if present)
       // FIXME: is it ok to reuse same var for different purpose?
-      // TODO: this code should also apply to groups (and ranges)
       if (pos < endPos && quantifierApplicable) {
         nextChar = regex.charAt(pos);
         switch (nextChar) {
+          case '{':
+            int indexOfComma = -1;
+            int openBracePos = pos;
+            boolean endReached = false;
+            while (pos < endPos - 1 && !endReached) {
+              ++pos;
+              // FIXME: is it ok to reuse nextChar here?
+              nextChar = regex.charAt(pos);
+              if (nextChar == ',') {
+                if (indexOfComma != -1) {
+                  throw new RegexSyntaxException("Double comma in quantifier range", regex);
+                }
+                indexOfComma = pos;
+              } else if (nextChar == '}') {
+                endReached = true;
+                int rangeBegin, rangeEnd;
+                if (indexOfComma == -1) {
+                  try {
+                    rangeBegin = Integer.parseInt(regex.substring(openBracePos + 1, pos));
+                    rangeEnd = rangeBegin;
+                    // FIXME: is this the correct way to rethrow exceptions?
+                  } catch (NumberFormatException e) {
+                    throw new RegexSyntaxException("Illegal range quantifier", regex);
+                  }
+                } else {
+                  try {
+                    rangeBegin = Integer.parseInt(regex.substring(openBracePos + 1, indexOfComma));
+                    if (indexOfComma + 1 == pos) {
+                      rangeEnd = -1;
+                    } else {
+                      rangeEnd = Integer.parseInt(regex.substring(indexOfComma + 1, pos));
+                    }
+                  } catch (NumberFormatException e) {
+                    throw new RegexSyntaxException("Illegal range quantifier", regex);
+                  }
+                }
+                GateNode gateNode = new GateNode();
+                RangeQuantifierNode rangeNode =
+                    new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd);
+                rangeNode.addNextNode(gateNode);
+                rangeNode.addNextNode(curNode);
+                newNode.addNextNode(rangeNode);
+                gateNode.addNextNode(newEmptyNode);
+                curNode = newEmptyNode;
+              }
+            }
+            ++pos;
+            break;
           case '*':
             curNode.addNextNode(newEmptyNode);
             // fall through
@@ -175,6 +261,7 @@ public class Regex
             ++pos;
             // fall through
           default:
+            newNode.addNextNode(newEmptyNode);
             // we don't increment pos here, because we'll process this char next in the loop
             curNode = newEmptyNode;
         }
@@ -187,8 +274,7 @@ public class Regex
 
   public boolean match(String str) {
     for (Node node: myNodes) {
-      // FIXME: is it ok to directly call to fields of nested class? (also in other places in the code)
-      node.myLastVisitPos = -1;
+      node.clear();
     }
     return match(str, 0, myStartNode);
   }
@@ -202,6 +288,7 @@ public class Regex
       return false;
     }
 
+    // FIXME: is it ok to directly call to fields of nested class? (also in other places in the code)
     // to avoid looping with empty string
     if (curNode.myLastVisitPos == pos) {
       return false;

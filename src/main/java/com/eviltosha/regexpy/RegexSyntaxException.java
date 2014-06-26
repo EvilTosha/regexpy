@@ -4,6 +4,7 @@ package com.eviltosha.regexpy;
  * Created by eviltosha on 6/26/14.
  */
 public class RegexSyntaxException extends IllegalArgumentException {
+  // TODO: this exception should indicate position of error in string
   private final String myDesc;
   private final String myRegex;
 
