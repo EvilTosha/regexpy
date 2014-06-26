@@ -25,6 +25,8 @@ public class RegexTest
     return new TestSuite(RegexTest.class);
   }
 
+  // TODO: Exceptions tests (keyword "expected")
+
   /**
    * Rigourous Test :-)
    */
@@ -68,4 +70,52 @@ public class RegexTest
     assertFalse(regex.match("cast the spell!"));
   }
 
+  public void testEmptyGroup() {
+    Regex regex = new Regex("()");
+    assertTrue(regex.match(""));
+    assertFalse(regex.match("()"));
+    assertFalse(regex.match("Lorem ipsum"));
+    assertFalse(regex.match("Foo() { bar(123); }"));
+  }
+
+  public void testSimpleGroup() {
+    Regex regex = new Regex("a(b*c)d+");
+    assertTrue(regex.match("abcd"));
+    assertTrue(regex.match("acdd"));
+    assertTrue(regex.match("abbbcd"));
+    assertFalse(regex.match("add"));
+    assertFalse(regex.match("a(bc)d"));
+    assertFalse(regex.match("a(b*c)d+"));
+  }
+
+  public void testGroupQuantifiers() {
+    Regex regex = new Regex("a(b*c)*d+");
+    assertTrue(regex.match("abbcbcdd"));
+    assertTrue(regex.match("add"));
+    assertTrue(regex.match("accd"));
+    assertFalse(regex.match("a(b*c)*d+"));
+    assertFalse(regex.match("abbd"));
+    assertFalse(regex.match("abcbdd"));
+    assertFalse(regex.match("a(bc)d"));
+    assertFalse(regex.match("abccbd"));
+  }
+
+  public void testMultiGroup() {
+    Regex regex = new Regex("(b*c)*d()e(fg+)*");
+    assertTrue(regex.match("de"));
+    assertTrue(regex.match("defg"));
+    assertTrue(regex.match("cdefgggfg"));
+    assertTrue(regex.match("cbcbbcde"));
+    assertFalse(regex.match("bbcdefgf"));
+  }
+
+  public void testNestedGroup() {
+    Regex regex = new Regex("a(b+(c*d)+e)*f");
+    assertTrue(regex.match("abbccdcddebccdef"));
+    assertTrue(regex.match("af"));
+    assertTrue(regex.match("abdef"));
+    assertFalse(regex.match("abde"));
+    assertFalse(regex.match("abcef"));
+    assertFalse(regex.match("abcdebdebcef"));
+  }
 }
