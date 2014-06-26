@@ -40,10 +40,10 @@ public class Regex
     void addNextNode(Node node) {
       myNextNodes.add(node);
       // FIXME: debug output, remove before deployment
-      System.out.println("Connecting nodes: ");
-      print();
-      node.print();
-      System.out.println("-------");
+//      System.out.println("Connecting nodes: ");
+//      print();
+//      node.print();
+//      System.out.println("-------");
     }
 
     // FIXME: debug method, remove before deployment
@@ -101,15 +101,21 @@ public class Regex
     int pos = startPos;
     Node curNode = startNode;
     while (pos < endPos) {
-      boolean quantifierApplicable = false;
-      char nextChar = regex.charAt(pos);
       // FIXME: maybe refactor names for better readability
       Node newNode;
+      boolean quantifierApplicable = true;
+      char nextChar = regex.charAt(pos);
       switch (nextChar) {
         case '*':
         case '+':
           // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
           throw new RegexSyntaxException("Incorrect use of quantifier", regex);
+        case '|':
+          curNode.addNextNode(endNode);
+          newNode = startNode;
+          quantifierApplicable = false;
+          ++pos;
+          break;
         case '(':
           Node openNode = new OpenGroupNode(groupId);
           Node groupStartNode = new EmptyNode();
@@ -144,7 +150,6 @@ public class Regex
 
           curNode.addNextNode(openNode);
           curNode = openNode;
-          quantifierApplicable = true;
           break;
         case ')':
           throw new RegexSyntaxException("Unpaired closing parenthesis", regex);
@@ -153,7 +158,6 @@ public class Regex
           newNode.print();
           curNode.addNextNode(newNode);
           ++pos;
-          quantifierApplicable = true;
       }
       Node newEmptyNode = new EmptyNode();
       newNode.addNextNode(newEmptyNode);
@@ -164,11 +168,8 @@ public class Regex
         nextChar = regex.charAt(pos);
         switch (nextChar) {
           case '*':
-            newNode.addNextNode(curNode);
             curNode.addNextNode(newEmptyNode);
-            curNode = newEmptyNode;
-            ++pos;
-            break;
+            // fall through
           case '+':
             newNode.addNextNode(curNode);
             ++pos;

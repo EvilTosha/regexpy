@@ -118,4 +118,30 @@ public class RegexTest
     assertFalse(regex.match("abcef"));
     assertFalse(regex.match("abcdebdebcef"));
   }
+
+  public void testSimpleOr() {
+    Regex regex = new Regex("a|b");
+    assertTrue(regex.match("a"));
+    assertTrue(regex.match("b"));
+    assertFalse(regex.match("ab"));
+    assertFalse(regex.match("a|b"));
+    assertFalse(regex.match("aa"));
+    assertFalse(regex.match("bb"));
+    assertFalse(regex.match("ba"));
+  }
+
+  public void testSimpleOr_2() {
+    Regex regex = new Regex("a(b|(c|d)*)+e");
+    assertTrue(regex.match("abe"));
+    assertTrue(regex.match("abce"));
+    assertTrue(regex.match("abcde"));
+    assertTrue(regex.match("abbbe"));
+    assertTrue(regex.match("abcbde"));
+    assertTrue(regex.match("abbcbbdbbcde"));
+    assertTrue(regex.match("ace"));
+    assertTrue(regex.match("adde"));
+    assertTrue(regex.match("accdddbbe"));
+    assertTrue(regex.match("ae"));
+    assertFalse(regex.match("abfe"));
+  }
 }
