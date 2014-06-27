@@ -30,6 +30,7 @@ public class RegexTest
   /**
    * Rigourous Test :-)
    */
+  // TODO: check all tests with java.util.regexp
   // FIXME: naming conventions
   public void testEmptyString() {
     Regex regex = new Regex("");
@@ -145,6 +146,7 @@ public class RegexTest
     assertFalse(regex.match("abfe"));
   }
 
+  // TODO: multi-digit range
   public void testExactRangeQuantifier() {
     Regex regex = new Regex("a{3}");
     assertTrue(regex.match("aaa"));
@@ -179,5 +181,27 @@ public class RegexTest
     assertFalse(regex.match("aba"));
     assertFalse(regex.match(""));
     assertFalse(regex.match("aabbc"));
+  }
+
+  public void testSimpleGroupRecall() {
+    Regex regex = new Regex("(a|b)\\1");
+    assertTrue(regex.match("aa"));
+    assertTrue(regex.match("bb"));
+    assertFalse(regex.match("ab"));
+    assertFalse(regex.match("ba"));
+    assertFalse(regex.match("a1"));
+    assertFalse(regex.match("a\\1"));
+  }
+
+  // TODO: multi-digit group recall
+  public void testMultipleGroupRecall() {
+    Regex regex = new Regex("(a+(b|c*)\\2)\\2\\1");
+    assertTrue(regex.match("aa"));
+    assertTrue(regex.match("aaccccccaacccc"));
+    assertTrue(regex.match("abbbabb"));
+    assertFalse(regex.match("abcca"));
+    assertFalse(regex.match("aca"));
+    assertFalse(regex.match("abbb"));
+    assertFalse(regex.match("abbbacc"));
   }
 }

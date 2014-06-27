@@ -12,19 +12,69 @@ public class Regex
   // FIXME: should we store regex string?
   // FIXME: should it be encapsulated to own class?
   private Node myStartNode;
+
   // FIXME: is it ok to use ArrayList for this purpose? (also later in the code)
   private ArrayList<Node> myNodes;
+
+  // FIXME: what else should this class have? (what methods?)
+  class Range {
+    // FIXME: is it ok to use -1
+    private int myBegin, myEnd;
+
+    Range() { reset(); }
+    Range(int begin, int end) {
+      myBegin = begin;
+      myEnd = end;
+    }
+    // FIXME: +1 is probably not right (end should be exclusive?)
+    int length() { return myEnd - myBegin;}
+    int getBegin() { return myBegin; }
+    int getEnd() { return myEnd; }
+    void setBegin(int begin) { myBegin = begin; }
+    void setEnd(int end) { myEnd = end; }
+    void setRange(int begin, int end) {
+      myBegin = begin;
+      myEnd = end;
+    }
+    void reset() {
+      myBegin = -1;
+      myEnd = -1;
+    }
+    boolean isDefined() {
+      return (myBegin >= 0 && myEnd >= 0);
+    }
+  }
+
+  private int myNumGroups;
+  // FIXME: should this be array? Also can we be fine without additional class?
+  // FIXME: what modifiers should it have? (final, ...)
+  private Range[] myGroupRanges;
+
+
+  private void graphClear() {
+    for (Node node: myNodes) {
+      node.clear();
+    }
+    for (Range range: myGroupRanges) {
+      range.reset();
+    }
+  }
 
   // FIXME: are there default setters?
   public Regex(String regex) {
     myNodes = new ArrayList<Node>();
     myStartNode = new EmptyNode();
     Node endNode = new EndNode();
-    construct(myStartNode, endNode, regex, 0, regex.length(), 1);
+    myNumGroups = 0;
+    construct(myStartNode, endNode, regex, 0, regex.length(), 0);
+    myGroupRanges = new Range[myNumGroups];
+    for (int i = 0; i < myNumGroups; ++i) {
+      myGroupRanges[i] = new Range();
+    }
   }
 
   // FIXME: which modifiers (private/..., static, etc) should apply to inner classes?
-  abstract class Node extends Object {
+  abstract class Node {
     ArrayList<Node> myNextNodes;
     ArrayList<Node> getNextNodes() { return myNextNodes; }
 
@@ -60,6 +110,11 @@ public class Regex
       super();
       myGroupId = id;
     }
+    @Override
+    int matchPart(String str, int strPos) {
+      myGroupRanges[myGroupId].setBegin(strPos);
+      return super.matchPart(str, strPos);
+    }
   }
 
   class CloseGroupNode extends EmptyNode {
@@ -67,6 +122,34 @@ public class Regex
     CloseGroupNode(int id) {
       super();
       myGroupId = id;
+    }
+    @Override
+    int matchPart(String str, int strPos) {
+      myGroupRanges[myGroupId].setEnd(strPos);
+      return super.matchPart(str, strPos);
+    }
+  }
+
+  class GroupRecallNode extends Node {
+    int myGroupId;
+    GroupRecallNode(int id) {
+      super();
+      myGroupId = id;
+    }
+    @Override
+    int matchPart(String str, int strPos) {
+      Range range = myGroupRanges[myGroupId];
+      // FIXME: is it ok to use assert?
+      assert(range.isDefined());
+      if (range.length() > str.length() - strPos) {
+        return -1;
+      }
+      for (int i = 0; i < range.length(); ++i) {
+        if (str.charAt(range.getBegin() + i) != str.charAt(strPos + i)) {
+          return -1;
+        }
+      }
+      return range.length();
     }
   }
 
@@ -137,70 +220,111 @@ public class Regex
   private void construct(Node startNode, Node endNode, String regex,
                          int startPos, int endPos, int groupId) {
     int pos = startPos;
+    boolean escaped = false;
     Node curNode = startNode;
     while (pos < endPos) {
       // FIXME: maybe refactor names for better readability
       Node newNode;
       boolean quantifierApplicable = true;
       char nextChar = regex.charAt(pos);
-      switch (nextChar) {
-        case '{':
-        case '*':
-        case '+':
-          // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
-          throw new RegexSyntaxException("Incorrect use of quantifier", regex);
-        case '}':
-          throw new RegexSyntaxException("Unmatched '}'", regex);
-        case '|':
-          curNode.addNextNode(endNode);
-          newNode = startNode;
-          quantifierApplicable = false;
-          ++pos;
-          break;
-        case '(':
-          Node openNode = new OpenGroupNode(groupId);
-          Node groupStartNode = new EmptyNode();
-          openNode.addNextNode(groupStartNode);
-          newNode = new CloseGroupNode(groupId);
-          int newGroupId = groupId + 1;
-          int braceCount = 1;
-          // FIXME: is there a way not to use increment 2 times?
-          ++pos;
-          int openGroupPos = pos;
-          while (pos < endPos && braceCount > 0) {
-            nextChar = regex.charAt(pos);
-            switch(nextChar) {
-              case '(':
-                ++newGroupId;
-                ++braceCount;
-                break;
-              case ')':
-                --braceCount;
-                break;
-              default:
-                break;
-            }
-            ++pos;
+      if (escaped) {
+        if (Character.isDigit(nextChar)) {
+          int newPos = pos + 1;
+          while (newPos < endPos && Character.isDigit(regex.charAt(newPos))) {
+            ++newPos;
           }
-          if (braceCount == 0) {
-            construct(groupStartNode, newNode, regex, openGroupPos, pos - 1, groupId + 1);
-            groupId = newGroupId;
-          } else {
-            throw new RegexSyntaxException("Unmatched '('", regex);
+          // FIXME: try-catch?
+          // we subtract 1, because groups in regex start with 1, but array indices start with 0
+          int groupRecallId = Integer.parseInt(regex.substring(pos, newPos)) - 1;
+          // FIXME: group recall inside the group itself behavior
+          if (groupId <= groupRecallId) {
+            throw new RegexSyntaxException("Group recall before group definition", regex);
           }
-
-          curNode.addNextNode(openNode);
-          curNode = openNode;
-          break;
-        case ')':
-          throw new RegexSyntaxException("Unpaired ')'", regex);
-        default:
-          newNode = new SymbolNode(nextChar);
+          newNode = new GroupRecallNode(groupRecallId);
           curNode.addNextNode(newNode);
-          ++pos;
+          pos = newPos;
+        } else {
+          switch (nextChar) {
+            // TODO: add special characters and escape sequences
+            default:
+              newNode = new SymbolNode(nextChar);
+              curNode.addNextNode(newNode);
+              ++pos;
+              break;
+          }
+        }
+        escaped = false;
+      } else {
+        switch (nextChar) {
+          case '{':
+          case '*':
+          case '+':
+            // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
+            throw new RegexSyntaxException("Incorrect use of quantifier", regex);
+          case '}':
+            throw new RegexSyntaxException("Unmatched '}'", regex);
+          case '|':
+            curNode.addNextNode(endNode);
+            newNode = startNode;
+            quantifierApplicable = false;
+            ++pos;
+            break;
+          case '(':
+            Node openNode = new OpenGroupNode(groupId);
+            Node groupStartNode = new EmptyNode();
+            openNode.addNextNode(groupStartNode);
+            newNode = new CloseGroupNode(groupId);
+            // we do this increment every time we encounter open brace, so we'll count all the groups
+            ++myNumGroups;
+            int newGroupId = groupId + 1;
+            int braceCount = 1;
+            // FIXME: is there a way not to use increment 2 times?
+            ++pos;
+            int openGroupPos = pos;
+            while (pos < endPos && braceCount > 0) {
+              nextChar = regex.charAt(pos);
+              switch (nextChar) {
+                case '(':
+                  ++newGroupId;
+                  ++braceCount;
+                  break;
+                case ')':
+                  --braceCount;
+                  break;
+                default:
+                  // do nothing
+                  break;
+              }
+              ++pos;
+            }
+            if (braceCount == 0) {
+              construct(groupStartNode, newNode, regex, openGroupPos, pos - 1, groupId + 1);
+              groupId = newGroupId;
+            } else {
+              throw new RegexSyntaxException("Unmatched '('", regex);
+            }
+            curNode.addNextNode(openNode);
+            curNode = openNode;
+            break;
+          case ')':
+            throw new RegexSyntaxException("Unpaired ')'", regex);
+          case '\\':
+            escaped = true;
+            quantifierApplicable = false;
+            // FIXME: this is not necessary
+            newNode = new EmptyNode();
+            curNode.addNextNode(newNode);
+            ++pos;
+            break;
+          default:
+            newNode = new SymbolNode(nextChar);
+            curNode.addNextNode(newNode);
+            ++pos;
+            break;
+        }
       }
       Node newEmptyNode = new EmptyNode();
-      // quantifier application (if present)
+      // quantifier application (if present & applicable)
       // FIXME: is it ok to reuse same var for different purpose?
       if (pos < endPos && quantifierApplicable) {
         nextChar = regex.charAt(pos);
@@ -273,9 +397,7 @@ public class Regex
   }
 
   public boolean match(String str) {
-    for (Node node: myNodes) {
-      node.clear();
-    }
+    graphClear();
     return match(str, 0, myStartNode);
   }
 
