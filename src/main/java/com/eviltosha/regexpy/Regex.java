@@ -2,6 +2,7 @@ package com.eviltosha.regexpy;
 
 import java.lang.Override;
 import java.util.ArrayList;
+import java.util.Stack;
 
 /**
  * Hello world!
@@ -76,8 +77,11 @@ public class Regex
     myStartNode = new EmptyNode();
     Node endNode = new EndNode();
     myNumGroups = 0;
-    construct(myStartNode, endNode, regex, 0, regex.length(), 0);
+    RegexStringProcessor processor = new RegexStringProcessor(regex);
+    // FIXME: startNode and endNode are redundant
+    construct(myStartNode, endNode, processor);
     myGroupRanges = new Range[myNumGroups];
+    // FIXME: probably bad loop
     for (int i = 0; i < myNumGroups; ++i) {
       myGroupRanges[i] = new Range();
     }
@@ -163,6 +167,7 @@ public class Regex
       super();
       myGroupId = id;
     }
+    int getGroupId() { return myGroupId; }
     @Override
     int matchPart(String str, int strPos) {
       myGroupRanges[myGroupId].setBegin(strPos);
@@ -271,39 +276,39 @@ public class Regex
   }
 
   // FIXME: is this method too long? Yes it is, even Idea says so
-  private void construct(Node startNode, Node endNode, String regex,
-                         int startPos, int endPos, int groupId) {
-    int pos = startPos;
+  // FIXME: startNode and endNode are probably redundant after recursion is eliminated
+  private void construct(Node startNode, Node endNode, RegexStringProcessor processor) {
     boolean escaped = false;
     Node curNode = startNode;
-    while (pos < endPos) {
+    // FIXME: refactor this
+    Stack<Node> groupStartNodeStack = new Stack<Node>();
+    groupStartNodeStack.push(startNode);
+    Stack<OpenGroupNode> groupNodeStack = new Stack<OpenGroupNode>();
+    // FIXME: also refactor this
+    Stack<Node> closeGroupNodeStack = new Stack<Node>();
+    closeGroupNodeStack.push(endNode);
+    while (processor.hasNext()) {
       // FIXME: maybe refactor names for better readability
       Node newNode;
       boolean quantifierApplicable = true;
-      char nextChar = regex.charAt(pos);
+      char nextChar = processor.peek();
       if (escaped) {
         if (Character.isDigit(nextChar)) {
-          int newPos = pos + 1;
-          while (newPos < endPos && Character.isDigit(regex.charAt(newPos))) {
-            ++newPos;
-          }
-          // FIXME: try-catch?
           // we subtract 1, because groups in regex start with 1, but array indices start with 0
-          int groupRecallId = Integer.parseInt(regex.substring(pos, newPos)) - 1;
+          int groupRecallId = processor.eatNumber() - 1;
           // FIXME: group recall inside the group itself behavior
-          if (groupId <= groupRecallId) {
-            throw new RegexSyntaxException("Group recall before group definition", regex);
+          if (myNumGroups <= groupRecallId) {
+            throw new RegexSyntaxException("Group recall before group definition", processor.getRegex());
           }
           newNode = new GroupRecallNode(groupRecallId);
           curNode.addNextNode(newNode);
-          pos = newPos;
         } else {
           switch (nextChar) {
             // TODO: add special characters and escape sequences
             default:
+              processor.eatSilently();
               newNode = new SymbolNode(nextChar);
               curNode.addNextNode(newNode);
-              ++pos;
               break;
           }
         }
@@ -313,65 +318,53 @@ public class Regex
           case '{':
           case '*':
           case '+':
-            // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
-            throw new RegexSyntaxException("Incorrect use of quantifier", regex);
-          // FIXME: this is not special character (shouldn't be an error); also add test
-          case '}':
-            throw new RegexSyntaxException("Unmatched '}'", regex);
+            throw new RegexSyntaxException("Incorrect use of quantifier", processor.getRegex());
+            // FIXME: this is not special character (shouldn't be an error); also add test
           case '|':
-            curNode.addNextNode(endNode);
-            newNode = startNode;
+            processor.eatSilently();
+            curNode.addNextNode(closeGroupNodeStack.peek());
+            newNode = groupStartNodeStack.peek();
             quantifierApplicable = false;
-            ++pos;
             break;
-          case '(':
-            Node openNode = new OpenGroupNode(groupId);
-            Node groupStartNode = new EmptyNode();
-            openNode.addNextNode(groupStartNode);
-            newNode = new CloseGroupNode(groupId);
-            // we do this increment every time we encounter an open brace, so we'll count all the groups
+          case '(': { // artificially create scope to reuse some variable names in other cases
+            processor.eatSilently();
+            OpenGroupNode openNode = new OpenGroupNode(myNumGroups);
+            groupNodeStack.push(openNode);
+            CloseGroupNode closeNode = new CloseGroupNode(myNumGroups);
+            closeGroupNodeStack.push(closeNode);
+            newNode = new EmptyNode();
+            groupStartNodeStack.push(newNode);
+            openNode.addNextNode(newNode);
             ++myNumGroups;
-            int newGroupId = groupId + 1;
-            int braceCount = 1;
-            // FIXME: is there a way not to use increment 2 times?
-            ++pos;
-            int openGroupPos = pos;
-            while (pos < endPos && braceCount > 0) {
-              nextChar = regex.charAt(pos);
-              switch (nextChar) {
-                // FIXME: ([)]) case; also write test(s)
-                case '(':
-                  ++newGroupId;
-                  ++braceCount;
-                  break;
-                case ')':
-                  --braceCount;
-                  break;
-                default:
-                  // do nothing
-                  break;
-              }
-              ++pos;
-            }
-            if (braceCount == 0) {
-              construct(groupStartNode, newNode, regex, openGroupPos, pos - 1, groupId + 1);
-              groupId = newGroupId;
-            } else {
-              throw new RegexSyntaxException("Unmatched '('", regex);
-            }
+
             curNode.addNextNode(openNode);
             curNode = openNode;
+            quantifierApplicable = false;
             break;
-          case ')':
-            throw new RegexSyntaxException("Unpaired ')'", regex);
+          }
+          case ')': {
+            processor.eatSilently();
+            if (groupNodeStack.isEmpty()) {
+              throw new RegexSyntaxException("Unpaired ')'", processor.getRegex());
+            }
+            OpenGroupNode openNode = groupNodeStack.pop();
+            newNode = closeGroupNodeStack.pop();
+            curNode.addNextNode(newNode);
+            curNode = openNode;
+            groupStartNodeStack.pop();
+            break;
+          }
           case '[':
+            processor.eatSilently();
             CharRangeNode rangeNode = new CharRangeNode();
-            // FIXME: newNode is of type Node; is it ok to use CharRangeNode methods?
             // first characters that need special treatment: '^' (negates range),
             // '-' (in first position it acts like literal hyphen, also can be part of a range),
             // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
-            ++pos;
-            nextChar = regex.charAt(pos);
+            // FIXME: this construct is very common, maybe omit it? (eat() and other methods provide checks themselves
+            if (!processor.hasNext()) {
+              throw new RegexSyntaxException("Unbalanced char range", processor.getRegex());
+            }
+            nextChar = processor.eat();
             // we store parsed char,
             // if next char is not '-', we add it as a char, otherwise construct range
             char storedChar;
@@ -380,17 +373,17 @@ public class Regex
             boolean asRange = false;
             if (nextChar == '^') {
               rangeNode.setNegate(true);
-              // we need to perform first character analysis once more (for special '-' and ']' cases)
-              ++pos;
-              nextChar = regex.charAt(pos);
+              // we need to perform the first character analysis once more (for special '-' and ']' cases)
+              if (!processor.hasNext()) {
+                throw new RegexSyntaxException("Unbalanced char range", processor.getRegex());
+              }
+              nextChar = processor.eat();
             }
             storedChar = nextChar;
             charIsStored = true;
-            // FIXME: too many ++pos and no boundary checks (also in other places in the code)
-            ++pos;
             boolean rangeClosed = false;
-            while (pos < endPos && !rangeClosed) {
-              nextChar = regex.charAt(pos);
+            while (processor.hasNext() && !rangeClosed) {
+              nextChar = processor.eat();
               switch (nextChar) {
                 case ']':
                   if (charIsStored) {
@@ -404,15 +397,19 @@ public class Regex
                   break;
                 case '-':
                   if (!charIsStored || asRange) {
-                    // FIXME: [a-] and test
-                    // check whether it's the last char in group
-                    ++pos;
-                    nextChar = regex.charAt(pos);
-                    if (nextChar == ']') {
-                      rangeNode.addChar('-');
+                    // check whether it's the last char in group (like in "[a--]")
+                    if (!processor.hasNext()) {
+                      throw new RegexSyntaxException("Unbalanced char range", processor.getRegex());
+                    }
+                    if (processor.eat() == ']') {
+                      if (asRange) {
+                        rangeNode.addCharRange(storedChar, '-');
+                      } else {
+                        rangeNode.addChar('-');
+                      }
                       rangeClosed = true;
                     } else {
-                      throw new RegexSyntaxException("Incorrect use of hyphen inside char range", regex);
+                      throw new RegexSyntaxException("Incorrect use of hyphen inside char range", processor.getRegex());
                     }
                   }
                   asRange = true;
@@ -421,10 +418,12 @@ public class Regex
                   if (charIsStored) {
                     if (asRange) {
                       rangeNode.addCharRange(storedChar, nextChar);
+                      charIsStored = false;
                     } else {
-                      rangeNode.addChar(nextChar);
+                      rangeNode.addChar(storedChar);
+                      storedChar = nextChar;
+                      // charIsStored remains true
                     }
-                    charIsStored = false;
                   } else {
                     storedChar = nextChar;
                     charIsStored = true;
@@ -432,90 +431,76 @@ public class Regex
                   asRange = false;
                   break;
               }
-              ++pos;
             }
-            if (pos == endPos) {
-              throw new RegexSyntaxException("Unclosed char range", regex);
+            if (!rangeClosed) {
+              throw new RegexSyntaxException("Unclosed char range", processor.getRegex());
             }
             // FIXME: this is obviously bad code, refactor
             newNode = rangeNode;
             curNode.addNextNode(newNode);
             break;
           case '\\':
+            processor.eatSilently();
             escaped = true;
             quantifierApplicable = false;
             // FIXME: this is not necessary
             newNode = new EmptyNode();
             curNode.addNextNode(newNode);
-            ++pos;
             break;
           default:
+            processor.eatSilently();
             newNode = new SymbolNode(nextChar);
             curNode.addNextNode(newNode);
-            ++pos;
             break;
         }
       }
       Node newEmptyNode = new EmptyNode();
       // quantifier application (if present & applicable)
       // FIXME: is it ok to reuse same var for different purpose?
-      if (pos < endPos && quantifierApplicable) {
-        nextChar = regex.charAt(pos);
+      if (processor.hasNext() && quantifierApplicable) {
+        nextChar = processor.peek();
         switch (nextChar) {
           case '{':
-            int indexOfComma = -1;
-            int openBracePos = pos;
-            boolean endReached = false;
-            while (pos < endPos - 1 && !endReached) {
-              ++pos;
-              // FIXME: is it ok to reuse nextChar here?
-              nextChar = regex.charAt(pos);
-              if (nextChar == ',') {
-                if (indexOfComma != -1) {
-                  throw new RegexSyntaxException("Double comma in quantifier range", regex);
-                }
-                indexOfComma = pos;
-              } else if (nextChar == '}') {
-                endReached = true;
-                int rangeBegin, rangeEnd;
-                if (indexOfComma == -1) {
-                  try {
-                    rangeBegin = Integer.parseInt(regex.substring(openBracePos + 1, pos));
-                    rangeEnd = rangeBegin;
-                    // FIXME: is this the correct way to rethrow exceptions?
-                  } catch (NumberFormatException e) {
-                    throw new RegexSyntaxException("Illegal range quantifier", regex);
-                  }
-                } else {
-                  try {
-                    rangeBegin = Integer.parseInt(regex.substring(openBracePos + 1, indexOfComma));
-                    if (indexOfComma + 1 == pos) {
-                      rangeEnd = -1;
-                    } else {
-                      rangeEnd = Integer.parseInt(regex.substring(indexOfComma + 1, pos));
-                    }
-                  } catch (NumberFormatException e) {
-                    throw new RegexSyntaxException("Illegal range quantifier", regex);
-                  }
-                }
-                GateNode gateNode = new GateNode();
-                RangeQuantifierNode rangeNode =
-                    new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd);
-                rangeNode.addNextNode(gateNode);
-                rangeNode.addNextNode(curNode);
-                newNode.addNextNode(rangeNode);
-                gateNode.addNextNode(newEmptyNode);
-                curNode = newEmptyNode;
-              }
+            processor.eatSilently();
+            int rangeBegin, rangeEnd;
+            // we don't perform checks because eatNumber will perform them
+            rangeBegin = processor.eatNumber();
+            if (!processor.hasNext()) {
+              throw new RegexSyntaxException("Unbalanced range quantifier", processor.getRegex());
             }
-            ++pos;
+            switch (processor.eat()) {
+              case ',':
+                if (processor.peek() == '}') {
+                  processor.eatSilently();
+                  rangeEnd = -1; // -1 denotes infinity
+                } else {
+                  rangeEnd = processor.eatNumber();
+                  if (!processor.hasNext() || processor.eat() != '}') {
+                    throw new RegexSyntaxException("Malformed range quantifier", processor.getRegex());
+                  }
+                }
+                break;
+              case '}':
+                rangeEnd = rangeBegin; // single number range
+                break;
+              default:
+                throw new RegexSyntaxException("Invalid range quantifier", processor.getRegex());
+            }
+            GateNode gateNode = new GateNode();
+            RangeQuantifierNode rangeNode =
+                new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd);
+            rangeNode.addNextNode(gateNode);
+            rangeNode.addNextNode(curNode);
+            newNode.addNextNode(rangeNode);
+            gateNode.addNextNode(newEmptyNode);
+            curNode = newEmptyNode;
             break;
           case '*':
             curNode.addNextNode(newEmptyNode);
             // fall through
           case '+':
+            processor.eatSilently();
             newNode.addNextNode(curNode);
-            ++pos;
             // fall through
           default:
             newNode.addNextNode(newEmptyNode);

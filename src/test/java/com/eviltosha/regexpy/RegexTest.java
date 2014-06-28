@@ -157,7 +157,7 @@ public class RegexTest
     assertFalse(regex.match("aaab"));
   }
 
-  public void testSimpleRangeQuantified() {
+  public void testSimpleRangeQuantifier() {
     Regex regex = new Regex("(ab){2,3}");
     assertTrue(regex.match("abab"));
     assertTrue(regex.match("ababab"));
