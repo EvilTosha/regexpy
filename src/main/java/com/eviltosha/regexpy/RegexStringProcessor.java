@@ -60,5 +60,4 @@ class RegexStringProcessor {
     int res = Integer.parseInt(myRegex.substring(posStart, myPos));
     return res;
   }
-
 }

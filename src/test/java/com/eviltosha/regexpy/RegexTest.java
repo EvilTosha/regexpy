@@ -238,4 +238,13 @@ public class RegexTest
     assertFalse(regex.match("..."));
     assertFalse(regex.match(". ."));
   }
+
+  public void testQuestionMark() {
+    Regex regex = new Regex(".?[abd-wyz]?");
+    assertTrue(regex.match(""));
+    assertTrue(regex.match("$"));
+    assertTrue(regex.match("ab"));
+    assertFalse(regex.match("ac"));
+    assertFalse(regex.match("abc"));
+  }
 }

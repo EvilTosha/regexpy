@@ -299,6 +299,7 @@ public class Regex
         } else {
           switch (ch) {
             // TODO: add special characters and escape sequences
+
             default:
               processor.eatSilently();
               termEndNode = new SymbolNode(ch);
@@ -476,7 +477,12 @@ public class Regex
         rangeNode.addNextNode(termBeginNode);
         termEndNode.addNextNode(rangeNode);
         gateNode.addNextNode(newEmptyNode);
-        return newEmptyNode;
+        break;
+      case '?':
+        processor.eatSilently();
+        termBeginNode.addNextNode(newEmptyNode);
+        termEndNode.addNextNode(newEmptyNode);
+        break;
       case '*':
         termBeginNode.addNextNode(newEmptyNode);
         // fall through
@@ -485,10 +491,11 @@ public class Regex
         termEndNode.addNextNode(termBeginNode);
         // fall through
       default:
+        // don't eat char here, we'll process it later
         termEndNode.addNextNode(newEmptyNode);
-        // we don't increment pos here, because we'll process this char next in the loop
-        return newEmptyNode;
+        break;
     }
+    return newEmptyNode;
   }
 
   private boolean match(String str, int pos, Node curNode) {
