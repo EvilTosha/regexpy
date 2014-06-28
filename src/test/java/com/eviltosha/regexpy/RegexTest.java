@@ -204,4 +204,16 @@ public class RegexTest
     assertFalse(regex.match("abbb"));
     assertFalse(regex.match("abbbacc"));
   }
+
+  // TODO: more tests on char ranges
+  public void testCharRange() {
+    Regex regex = new Regex("[a-z]+");
+    assertTrue(regex.match("abacaba"));
+    assertFalse(regex.match("abaCaba"));
+  }
+
+  public void testLettersNumbersHyphens() {
+    Regex regex = new Regex("([A-Za-z0-9-]+)");
+    assertTrue(regex.match("abacaba1"));
+  }
 }

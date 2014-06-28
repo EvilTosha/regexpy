@@ -45,6 +45,18 @@ public class Regex
     }
   }
 
+  // FIXME: can we have only one range class?
+  class CharRange {
+    char myBegin, myEnd;
+    CharRange(char begin, char end) {
+      myBegin = begin;
+      myEnd = end;
+    }
+    boolean has(char ch) {
+      return (myBegin <= ch && ch <= myEnd);
+    }
+  }
+
   private int myNumGroups;
   // FIXME: should this be array? Also can we be fine without additional class?
   // FIXME: what modifiers should it have? (final, ...)
@@ -60,7 +72,6 @@ public class Regex
     }
   }
 
-  // FIXME: are there default setters?
   public Regex(String regex) {
     myNodes = new ArrayList<Node>();
     myStartNode = new EmptyNode();
@@ -90,6 +101,49 @@ public class Regex
     boolean isEnd() { return false; }
     void addNextNode(Node node) {
       myNextNodes.add(node);
+    }
+  }
+
+  // FIXME: this class has char interface, but uses Character internally. Probably that's not good
+  class CharRangeNode extends Node {
+    ArrayList<CharRange> myCharRanges;
+    ArrayList<Character> myChars;
+    boolean myNegate;
+
+    CharRangeNode() {
+      super();
+      myCharRanges = new ArrayList<CharRange>();
+      myChars = new ArrayList<Character>();
+      myNegate = false;
+    }
+
+    void setNegate(boolean negate) { myNegate = negate; }
+
+    void addChar(char ch) {
+      myChars.add(Character.valueOf(ch));
+    }
+    void addCharRange(char begin, char end) {
+      myCharRanges.add(new CharRange(begin, end));
+    }
+    @Override
+    int matchPart(String str, int strPos) {
+      if (strPos >= str.length()) {
+        return -1;
+      }
+      char strChar = str.charAt(strPos);
+      for (Character character: myChars) {
+        if (strChar == character.charValue()) {
+          // FIXME: is it ok to use ternary if? (also in code below)
+          // FIXME: (myNegate ? -1 : 1) used three times in the code. Use variable?
+          return (myNegate ? -1 : 1);
+        }
+      }
+      for (CharRange range: myCharRanges) {
+        if (range.has(strChar)) {
+          return (myNegate ? -1 : 1);
+        }
+      }
+      return (myNegate ? 1 : -1);
     }
   }
 
@@ -130,6 +184,7 @@ public class Regex
     }
   }
 
+  // FIXME: group zero (add or specify as excluded functionality)
   class GroupRecallNode extends Node {
     int myGroupId;
     GroupRecallNode(int id) {
@@ -216,7 +271,7 @@ public class Regex
     }
   }
 
-  // FIXME: is this method too long?
+  // FIXME: is this method too long? Yes it is, even Idea says so
   private void construct(Node startNode, Node endNode, String regex,
                          int startPos, int endPos, int groupId) {
     int pos = startPos;
@@ -261,6 +316,7 @@ public class Regex
           case '+':
             // FIXME: is this the correct way to throw exceptions? (there are more occurrences below)
             throw new RegexSyntaxException("Incorrect use of quantifier", regex);
+          // FIXME: this is not special character (shouldn't be an error); also add test
           case '}':
             throw new RegexSyntaxException("Unmatched '}'", regex);
           case '|':
@@ -274,7 +330,7 @@ public class Regex
             Node groupStartNode = new EmptyNode();
             openNode.addNextNode(groupStartNode);
             newNode = new CloseGroupNode(groupId);
-            // we do this increment every time we encounter open brace, so we'll count all the groups
+            // we do this increment every time we encounter an open brace, so we'll count all the groups
             ++myNumGroups;
             int newGroupId = groupId + 1;
             int braceCount = 1;
@@ -284,6 +340,7 @@ public class Regex
             while (pos < endPos && braceCount > 0) {
               nextChar = regex.charAt(pos);
               switch (nextChar) {
+                // FIXME: ([)]) case; also write test(s)
                 case '(':
                   ++newGroupId;
                   ++braceCount;
@@ -308,6 +365,83 @@ public class Regex
             break;
           case ')':
             throw new RegexSyntaxException("Unpaired ')'", regex);
+          case '[':
+            CharRangeNode rangeNode = new CharRangeNode();
+            // FIXME: newNode is of type Node; is it ok to use CharRangeNode methods?
+            // first characters that need special treatment: '^' (negates range),
+            // '-' (in first position it acts like literal hyphen, also can be part of a range),
+            // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
+            ++pos;
+            nextChar = regex.charAt(pos);
+            // we store parsed char,
+            // if next char is not '-', we add it as a char, otherwise construct range
+            char storedChar;
+            // FIXME: this var seems unnecessary; maybe use Character for using null?
+            boolean charIsStored = false;
+            boolean asRange = false;
+            if (nextChar == '^') {
+              rangeNode.setNegate(true);
+              // we need to perform first character analysis once more (for special '-' and ']' cases)
+              ++pos;
+              nextChar = regex.charAt(pos);
+            }
+            storedChar = nextChar;
+            charIsStored = true;
+            // FIXME: too many ++pos and no boundary checks (also in other places in the code)
+            ++pos;
+            boolean rangeClosed = false;
+            while (pos < endPos && !rangeClosed) {
+              nextChar = regex.charAt(pos);
+              switch (nextChar) {
+                case ']':
+                  if (charIsStored) {
+                    rangeNode.addChar(storedChar);
+                    // if '-' stands right before the closing bracket it's treated as literal '-'
+                    if (asRange) {
+                      rangeNode.addChar('-');
+                    }
+                  }
+                  rangeClosed = true;
+                  break;
+                case '-':
+                  if (!charIsStored || asRange) {
+                    // FIXME: [a-] and test
+                    // check whether it's the last char in group
+                    ++pos;
+                    nextChar = regex.charAt(pos);
+                    if (nextChar == ']') {
+                      rangeNode.addChar('-');
+                      rangeClosed = true;
+                    } else {
+                      throw new RegexSyntaxException("Incorrect use of hyphen inside char range", regex);
+                    }
+                  }
+                  asRange = true;
+                  break;
+                default:
+                  if (charIsStored) {
+                    if (asRange) {
+                      rangeNode.addCharRange(storedChar, nextChar);
+                    } else {
+                      rangeNode.addChar(nextChar);
+                    }
+                    charIsStored = false;
+                  } else {
+                    storedChar = nextChar;
+                    charIsStored = true;
+                  }
+                  asRange = false;
+                  break;
+              }
+              ++pos;
+            }
+            if (pos == endPos) {
+              throw new RegexSyntaxException("Unclosed char range", regex);
+            }
+            // FIXME: this is obviously bad code, refactor
+            newNode = rangeNode;
+            curNode.addNextNode(newNode);
+            break;
           case '\\':
             escaped = true;
             quantifierApplicable = false;
@@ -405,7 +539,7 @@ public class Regex
     if (pos == str.length() && curNode.isEnd()) {
       return true;
     }
-    // the case (pos == str.length() - 1) and curNode isn't final will be processed below
+    // the case (pos == str.length()) and curNode isn't final will be processed below
     if (pos > str.length()) {
       return false;
     }
