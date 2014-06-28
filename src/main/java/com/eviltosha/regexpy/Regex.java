@@ -298,8 +298,47 @@ public class Regex
           termBeginNode.addNextNode(termEndNode);
         } else {
           switch (ch) {
-            // TODO: add special characters and escape sequences
-
+            case 'd': {
+              // FIXME: code dubbing
+              processor.eatSilently();
+              CharRangeNode rangeNode = new CharRangeNode();
+              rangeNode.addCharRange('0', '9');
+              termEndNode = rangeNode;
+              termBeginNode.addNextNode(termEndNode);
+              break;
+            }
+            case 'D': {
+              processor.eatSilently();
+              CharRangeNode rangeNode = new CharRangeNode();
+              rangeNode.addCharRange('0', '9');
+              rangeNode.setNegate(true);
+              termEndNode = rangeNode;
+              termBeginNode.addNextNode(termEndNode);
+              break;
+            }
+            case 's': {
+              processor.eatSilently();
+              CharRangeNode rangeNode = new CharRangeNode();
+              rangeNode.addChar('\r');
+              rangeNode.addChar('\n');
+              rangeNode.addChar('\t');
+              rangeNode.addChar('\f');
+              termEndNode = rangeNode;
+              termBeginNode.addNextNode(termEndNode);
+              break;
+            }
+            case 'S': {
+              processor.eatSilently();
+              CharRangeNode rangeNode = new CharRangeNode();
+              rangeNode.addChar('\r');
+              rangeNode.addChar('\n');
+              rangeNode.addChar('\t');
+              rangeNode.addChar('\f');
+              rangeNode.setNegate(true);
+              termEndNode = rangeNode;
+              termBeginNode.addNextNode(termEndNode);
+              break;
+            }
             default:
               processor.eatSilently();
               termEndNode = new SymbolNode(ch);

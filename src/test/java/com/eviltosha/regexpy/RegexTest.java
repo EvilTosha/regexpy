@@ -233,7 +233,7 @@ public class RegexTest
     assertTrue(regex.match(" \t"));
     assertTrue(regex.match(".."));
     assertTrue(regex.match("\n%"));
-    assertFalse(regex.match("Boobs"));
+    assertFalse(regex.match("Boobs!"));
     assertFalse(regex.match("a"));
     assertFalse(regex.match("..."));
     assertFalse(regex.match(". ."));
@@ -246,5 +246,18 @@ public class RegexTest
     assertTrue(regex.match("ab"));
     assertFalse(regex.match("ac"));
     assertFalse(regex.match("abc"));
+  }
+
+  // TODO: tests for \d, \D, \s, \S
+
+  public void testDates() {
+    // Date dd/mm/yyyy, or any mix
+    Regex regex = new Regex("(0[1-9]|[1-2]\\d|3[01])/(0[1-9]|1[012])/(\\d{4})");
+    assertTrue(regex.match("31/12/2006"));
+    assertTrue(regex.match("02/09/0002")); // weird year, I know
+    assertFalse(regex.match("2/09/2006"));
+    assertFalse(regex.match("12/13/2006"));
+    assertFalse(regex.match("32/10/2006"));
+    assertFalse(regex.match("02/09/206"));
   }
 }
