@@ -18,7 +18,7 @@ public class Regex
 
   // FIXME: what else should this class have? (what methods?)
   class Range {
-    // FIXME: is it ok to use -1
+    // FIXME: is it ok to use -1 as infinity/not set indicator?
     private int myBegin, myEnd;
 
     Range() { reset(); }
@@ -26,7 +26,6 @@ public class Regex
       myBegin = begin;
       myEnd = end;
     }
-    // FIXME: +1 is probably not right (end should be exclusive?)
     int length() { return myEnd - myBegin;}
     int getBegin() { return myBegin; }
     int getEnd() { return myEnd; }
@@ -120,7 +119,7 @@ public class Regex
     void setNegate(boolean negate) { myNegate = negate; }
 
     void addChar(char ch) {
-      myChars.add(Character.valueOf(ch));
+      myChars.add(ch);
     }
     void addCharRange(char begin, char end) {
       myCharRanges.add(new CharRange(begin, end));
@@ -132,7 +131,7 @@ public class Regex
       }
       char strChar = str.charAt(strPos);
       for (Character character: myChars) {
-        if (strChar == character.charValue()) {
+        if (strChar == character) {
           // FIXME: is it ok to use ternary if? (also in code below)
           // FIXME: (myNegate ? -1 : 1) used three times in the code. Use variable?
           return (myNegate ? -1 : 1);

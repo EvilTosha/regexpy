@@ -205,15 +205,25 @@ public class RegexTest
     assertFalse(regex.match("abbbacc"));
   }
 
-  // TODO: more tests on char ranges
+  // TODO: more tests on char ranges (specifically test tricky cases and negation)
   public void testCharRange() {
-    Regex regex = new Regex("[a-z]+");
+    Regex regex = new Regex("[a-p]+");
     assertTrue(regex.match("abacaba"));
+    assertFalse(regex.match(""));
     assertFalse(regex.match("abaCaba"));
+    assertFalse(regex.match("aba caba"));
+    assertFalse(regex.match("abazaba"));
   }
 
   public void testLettersNumbersHyphens() {
     Regex regex = new Regex("([A-Za-z0-9-]+)");
-    assertTrue(regex.match("abacaba1"));
+    assertTrue(regex.match("abacaba"));
+    assertTrue(regex.match("S0me-1337-tEXt-w1th-hyphens"));
+    assertTrue(regex.match("89123456700"));
+
+    assertFalse(regex.match("+79123456700"));
+    assertFalse(regex.match("[abc"));
+    assertFalse(regex.match("[123]"));
+    assertFalse(regex.match("text with spaces"));
   }
 }
