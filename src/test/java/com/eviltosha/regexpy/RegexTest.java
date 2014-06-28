@@ -226,4 +226,16 @@ public class RegexTest
     assertFalse(regex.match("[123]"));
     assertFalse(regex.match("text with spaces"));
   }
+
+  public void testSimpleDot() {
+    Regex regex = new Regex("(.)(.)");
+    assertTrue(regex.match("aa"));
+    assertTrue(regex.match(" \t"));
+    assertTrue(regex.match(".."));
+    assertTrue(regex.match("\n%"));
+    assertFalse(regex.match("Boobs"));
+    assertFalse(regex.match("a"));
+    assertFalse(regex.match("..."));
+    assertFalse(regex.match(". ."));
+  }
 }
