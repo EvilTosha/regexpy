@@ -6,31 +6,26 @@ import java.util.Stack;
 * Created by eviltosha on 6/28/14.
 */
 // Class for processing string representation of regex
-// TODO: public, private, ...
 class RegexStringProcessor {
-  String myRegex;
-  int myPos; // char at myPos is not processed yet
-
-  RegexStringProcessor(String regex) {
+  public RegexStringProcessor(String regex) {
     myRegex = regex;
     myPos = 0;
   }
 
-  String getRegex() { return myRegex; }
+  public String getRegex() { return myRegex; }
 
-  boolean hasNext() {
+  public boolean hasNext() {
     return (myPos < myRegex.length());
   }
 
-  char peek() {
+  public char peek() throws RegexSyntaxException {
     if (!hasNext()) {
-      // FIXME: should it be different type of exception?
       throw new RegexSyntaxException("Unexpected end of string", myRegex);
     }
     return myRegex.charAt(myPos);
   }
 
-  char eat() {
+  public char eat() throws RegexSyntaxException {
     if (!hasNext()) {
       throw new RegexSyntaxException("Unexpected end of string", myRegex);
     }
@@ -39,14 +34,15 @@ class RegexStringProcessor {
     return ch;
   }
 
-  void eatSilently() {
+  public void eatSilently() throws RegexSyntaxException {
     if (!hasNext()) {
       throw new RegexSyntaxException("Unexpected end of string", myRegex);
     }
     ++myPos;
   }
 
-  int eatNumber() {
+  public int eatNumber() throws RegexSyntaxException {
+    // FIXME: rewrite with only one throw (and try-catch)
     if (!hasNext()) {
       throw new RegexSyntaxException("Unexpected end of string", myRegex);
     }
@@ -57,7 +53,9 @@ class RegexStringProcessor {
     while (hasNext() && Character.isDigit(peek())) {
       eatSilently();
     }
-    int res = Integer.parseInt(myRegex.substring(posStart, myPos));
-    return res;
+    return Integer.parseInt(myRegex.substring(posStart, myPos));
   }
+
+  private String myRegex;
+  private int myPos; // char at myPos is not processed yet
 }

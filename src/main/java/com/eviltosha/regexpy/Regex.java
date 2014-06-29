@@ -10,12 +10,11 @@ import java.util.Stack;
  */
 public class Regex
 {
-  public Regex(String regex) {
+  public Regex(String regex) throws RegexSyntaxException {
     myNodes = new ArrayList<Node>();
     myNumGroups = 0;
     construct(regex);
     myGroupRanges = new Range[myNumGroups];
-    // FIXME: probably bad loop
     for (int i = 0; i < myNumGroups; ++i) {
       myGroupRanges[i] = new Range();
     }
@@ -141,7 +140,6 @@ public class Regex
   }
 
   private class EndNode extends EmptyNode {
-    // FIXME: is it ok to override for this particular behavior?
     @Override
     boolean isEnd() { return true; }
   }
@@ -267,7 +265,7 @@ public class Regex
   }
 
   // FIXME: is this method too long? Yes it is, even Idea says so
-  private void construct(String regex) {
+  private void construct(String regex) throws RegexSyntaxException{
     RegexStringProcessor processor = new RegexStringProcessor(regex);
     myStartNode = new EmptyNode();
     Node endNode = new EndNode();
@@ -483,7 +481,8 @@ public class Regex
     termBeginNode.addNextNode(endNode);
   }
 
-  private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode) {
+  private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode)
+      throws RegexSyntaxException {
     Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
