@@ -108,11 +108,11 @@ public class Regex
       // first characters that need special treatment: '^' (negates range),
       // '-' (in first position it acts like literal hyphen, also can be part of a range),
       // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
-      char ch = processor.eat();
+      char ch = processor.next();
       if (ch == '^') {
         setNegate(true);
         // we need to perform the first character analysis once more (for special '-' and ']' cases)
-        ch = processor.eat();
+        ch = processor.next();
       }
       // we store parsed char,
       // if next char is not '-', we add it as a char, otherwise construct range
@@ -122,7 +122,7 @@ public class Regex
       boolean asRange = false;
       boolean charRangeFinished = false;
       while (processor.hasNext() && !charRangeFinished) {
-        ch = processor.eat();
+        ch = processor.next();
         switch (ch) {
           case ']':
             if (charIsStored) {
@@ -137,7 +137,7 @@ public class Regex
           case '-':
             if (!charIsStored || asRange) {
               // check whether it's the last char in group (like in "[a--]")
-              if (processor.eat() == ']') {
+              if (processor.next() == ']') {
                 if (asRange) {
                   addCharRange(storedChar, '-');
                 } else {
@@ -333,7 +333,6 @@ public class Regex
     }
   }
 
-  // FIXME: is this method too long? Yes it is, even Idea says so
   private void construct(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
     myStartNode = new EmptyNode();
@@ -343,7 +342,7 @@ public class Regex
     // FIXME: refactor this
     Stack<Node> groupStartNodeStack = new Stack<Node>();
     groupStartNodeStack.push(myStartNode);
-    Stack<OpenGroupNode> groupNodeStack = new Stack<OpenGroupNode>();
+    Stack<Node> openGroupNodeStack = new Stack<Node>();
     // FIXME: also refactor this
     Stack<Node> closeGroupNodeStack = new Stack<Node>();
     closeGroupNodeStack.push(endNode);
@@ -352,11 +351,11 @@ public class Regex
     while (processor.hasNext()) {
       Node termEndNode;
       boolean quantifierApplicable = true;
-      char ch = processor.peek();
       if (escaped) {
-        if (Character.isDigit(ch)) {
-          // we subtract 1, because groups in regex start with 1, but array indices start with 0
-          int groupRecallId = processor.eatNumber() - 1;
+        if (Character.isDigit(processor.peek())) {
+          // group recall
+          int groupRecallId = processor.eatNumber() - 1; // subtract 1, because groups in regex start with 1,
+                                                         // but array indices start with 0
           // FIXME: group recall inside the group itself behavior
           if (myNumGroups <= groupRecallId) {
             throw new RegexSyntaxException("Group recall before group definition", processor.getRegex());
@@ -365,24 +364,25 @@ public class Regex
           termBeginNode.addNextNode(termEndNode);
         } else {
           // special character ranges
-          switch (ch) {
+          switch (processor.peek()) {
             case 'd':
             case 'D':
             case 's':
             case 'S':
-              termEndNode = constructSpecialCharRange(processor.eat());
+              termEndNode = constructSpecialCharRange(processor.next());
               termBeginNode.addNextNode(termEndNode);
               break;
             default:
               // FIXME: if escaped character is not special, exception should be thrown
-              termEndNode = new SymbolNode(processor.eat());
+              termEndNode = new SymbolNode(processor.next());
               termBeginNode.addNextNode(termEndNode);
               break;
           }
         }
         escaped = false;
       } else {
-        switch (processor.eat()) {
+        char ch = processor.next();
+        switch (ch) {
           case '{':
           case '*':
           case '+':
@@ -394,7 +394,7 @@ public class Regex
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
             OpenGroupNode openNode = new OpenGroupNode(myNumGroups);
-            groupNodeStack.push(openNode);
+            openGroupNodeStack.push(openNode);
             CloseGroupNode closeNode = new CloseGroupNode(myNumGroups);
             closeGroupNodeStack.push(closeNode);
             termEndNode = new EmptyNode();
@@ -408,10 +408,10 @@ public class Regex
             break;
           }
           case ')': {
-            if (groupNodeStack.isEmpty()) {
+            if (openGroupNodeStack.isEmpty()) {
               throw new RegexSyntaxException("Unpaired ')'", processor.getRegex());
             }
-            OpenGroupNode openNode = groupNodeStack.pop();
+            Node openNode = openGroupNodeStack.pop();
             termEndNode = closeGroupNodeStack.pop();
             termBeginNode.addNextNode(termEndNode);
             termBeginNode = openNode;
@@ -475,18 +475,19 @@ public class Regex
     Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
-        processor.eat();
+        // FIXME: this logic should be encapsulated
+        processor.next();
         int rangeBegin, rangeEnd;
         // we don't perform checks because eatNumber will perform them
         rangeBegin = processor.eatNumber();
-        switch (processor.eat()) {
+        switch (processor.next()) {
           case ',':
             if (processor.peek() == '}') {
-              processor.eat();
+              processor.next();
               rangeEnd = -1; // -1 denotes infinity
             } else {
               rangeEnd = processor.eatNumber();
-              if (processor.eat() != '}') {
+              if (processor.next() != '}') {
                 throw new RegexSyntaxException("Malformed range quantifier", processor.getRegex());
               }
             }
@@ -497,6 +498,12 @@ public class Regex
           default:
             throw new RegexSyntaxException("Invalid range quantifier", processor.getRegex());
         }
+        if (rangeBegin > rangeEnd && rangeEnd > -1) {
+          throw new RegexSyntaxException("Invalid range quantifier parameters", processor.getRegex());
+        }
+        if (rangeBegin == 0) {
+          termBeginNode.addNextNode(newEmptyNode);
+        }
         GateNode gateNode = new GateNode();
         RangeQuantifierNode rangeNode =
             new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd);
@@ -506,7 +513,7 @@ public class Regex
         gateNode.addNextNode(newEmptyNode);
         break;
       case '?':
-        processor.eat();
+        processor.next();
         termBeginNode.addNextNode(newEmptyNode);
         termEndNode.addNextNode(newEmptyNode);
         break;
@@ -514,7 +521,7 @@ public class Regex
         termBeginNode.addNextNode(newEmptyNode);
         // fall through
       case '+':
-        processor.eat();
+        processor.next();
         termEndNode.addNextNode(termBeginNode);
         // fall through
       default:

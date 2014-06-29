@@ -145,6 +145,14 @@ public class RegexTest {
   }
 
   @Test
+  public void zeroRangeQuantifierTest() {
+    Regex regex = new Regex("a{0,2}");
+    assertTrue(regex.match(""));
+    assertTrue(regex.match("aa"));
+    assertFalse(regex.match("aaa"));
+  }
+
+  @Test
   public void testSimpleGroupRecall() {
     Regex regex = new Regex("(a|b)\\1");
     assertTrue(regex.match("aa"));
@@ -219,10 +227,17 @@ public class RegexTest {
     assertFalse(regex.match("02/09/206"));
   }
 
-  @Test
-  public void testTest() {
-    Regex regex = new Regex("\\S");
-    assertTrue(regex.match("a"));
-    assertFalse(regex.match("\n"));
+  // Exceptions tests
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testEmptyCharRange() {
+    Regex regex = new Regex("[]");
   }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testReverseRangeQuantifier() {
+    Regex regex = new Regex("a{3,2}");
+  }
+
+  // TODO: no exception tests (correct tricky input)
 }
