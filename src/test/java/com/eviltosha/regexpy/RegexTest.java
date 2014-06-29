@@ -14,6 +14,8 @@ public class RegexTest {
   // and writing additional messages for every assert is unnecessary work
   // TODO: it's probably a good idea to create data files for regex and test strings and simply parse data for tests
   // FIXME: naming conventions
+
+  // Regular expressions components tests
   @Test
   public void testEmptyString() {
     Regex regex = new Regex("");
@@ -176,6 +178,14 @@ public class RegexTest {
     assertFalse(regex.match("abbbacc"));
   }
 
+  @Test
+  public void testRecallAfterQuantifier() {
+    Regex regex = new Regex("(\\d|[a-fA-F])*\\1");
+    assertTrue(regex.match("11"));
+    assertTrue(regex.match("A13BBB"));
+    assertFalse(regex.match("12"));
+  }
+
   // TODO: more tests on char ranges (specifically test tricky cases and negation)
   @Test
   public void testCharRange() {
@@ -230,6 +240,21 @@ public class RegexTest {
   // Exceptions tests
 
   @Test(expected = RegexSyntaxException.class)
+  public void testUnclosedRangeQuantifier() {
+    Regex regex = new Regex("a{");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testUnclosedOpenGroup() {
+    Regex regex = new Regex("a(");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testUnclosedCloseGroup() {
+    Regex regex = new Regex("a)");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
   public void testEmptyCharRange() {
     Regex regex = new Regex("[]");
   }
@@ -240,4 +265,13 @@ public class RegexTest {
   }
 
   // TODO: no exception tests (correct tricky input)
+
+  @Test
+  public void testTest() {
+    Regex regex = new Regex("(a+b)*");
+    assertFalse(regex.match("a"));
+  }
+
+  // Various tests
+
 }

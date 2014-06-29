@@ -186,20 +186,21 @@ public class Regex
       if (strPos >= str.length()) {
         return -1;
       }
+      // use this value for return
+      // FIXME: Use Integer and null?
+      int charFound = (myNegate ? -1 : 1);
       char strChar = str.charAt(strPos);
       for (Character character: myChars) {
         if (strChar == character) {
-          // FIXME: is it ok to use ternary if? (also in code below)
-          // FIXME: (myNegate ? -1 : 1) used three times in the code. Use variable?
-          return (myNegate ? -1 : 1);
+          return charFound;
         }
       }
       for (CharRange range: myCharRanges) {
         if (range.has(strChar)) {
-          return (myNegate ? -1 : 1);
+          return charFound;
         }
       }
-      return (myNegate ? 1 : -1);
+      return -charFound;
     }
   }
 
@@ -249,13 +250,13 @@ public class Regex
     @Override
     int matchPart(String str, int strPos) {
       Range range = myGroupRanges[myGroupId];
-      // FIXME: is it ok to use assert?
       assert(range.isDefined());
       if (range.length() > str.length() - strPos) {
         return -1;
       }
       for (int offset = 0; offset < range.length(); ++offset) {
-        if (str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
+        if (range.getBegin() + offset >= str.length() || strPos + offset >= str.length() ||
+            str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
           return -1;
         }
       }
@@ -272,11 +273,9 @@ public class Regex
     }
     @Override
     int matchPart(String str, int pos) {
-      // FIXME: is there some clever way to check without explicit check?
       if (pos < str.length() && str.charAt(pos) == mySymbol) {
         return 1;
       }
-      // FIXME: is it ok to return -1 when no match is possible?
       return -1;
     }
   }
@@ -299,8 +298,7 @@ public class Regex
     void setOpen(boolean open) { myOpen = open; }
     @Override
     int matchPart(String str, int pos) {
-      // FIXME: use ternary if?
-      if (myOpen) { return 0; } else { return -1; }
+      return (myOpen ? 0 : -1);
     }
   }
 
@@ -443,6 +441,9 @@ public class Regex
       } else {
         termBeginNode = termEndNode;
       }
+    }
+    if (!openGroupNodeStack.empty()) {
+      throw new RegexSyntaxException("Unpaired '('", processor.getRegex());
     }
     termBeginNode.addNextNode(endNode);
   }
