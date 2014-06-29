@@ -184,6 +184,7 @@ public class RegexTest {
     assertTrue(regex.match("11"));
     assertTrue(regex.match("A13BBB"));
     assertFalse(regex.match("12"));
+    assertFalse(regex.match("1"));
   }
 
   // TODO: more tests on char ranges (specifically test tricky cases and negation)

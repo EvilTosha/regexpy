@@ -2,27 +2,46 @@ package com.eviltosha.regexpy;
 
 import java.lang.Override;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Stack;
+import java.util.regex.Pattern;
 
 /**
  * Hello world!
  *
  */
-public class Regex
-{
+
+class Range {
+  // FIXME: is it ok to use -1 as infinity/not set indicator?
+  int myBegin, myEnd;
+
+  Range() { reset(); }
+  int length() { return myEnd - myBegin;}
+  int getBegin() { return myBegin; }
+  int getEnd() { return myEnd; }
+  void setBegin(int begin) { myBegin = begin; }
+  void setEnd(int end) { myEnd = end; }
+  void resetEnd() { myEnd = -1; }
+  void reset() {
+    myBegin = -1;
+    myEnd = -1;
+  }
+  boolean isDefined() {
+    return (myBegin >= 0 && myEnd >= 0);
+  }
+}
+
+public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
     myNodes = new ArrayList<Node>();
     myNumGroups = 0;
+    myGroupRanges = new HashMap<Integer, Stack<Range>>();
     construct(regex);
-    myGroupRanges = new Range[myNumGroups];
-    for (int i = 0; i < myNumGroups; ++i) {
-      myGroupRanges[i] = new Range();
-    }
   }
 
   public boolean match(String str) {
     graphClear();
-    return match(str, 0, myStartNode);
+    return myStartNode.match(str, 0);
   }
 
   private Node myStartNode;
@@ -30,37 +49,18 @@ public class Regex
   private int myNumGroups;
   // FIXME: should this be array? Also can we be fine without additional class?
   // FIXME: what modifiers should it have? (final, ...)
-  private Range[] myGroupRanges;
-
-  private class Range {
-    // FIXME: is it ok to use -1 as infinity/not set indicator?
-    int myBegin, myEnd;
-
-    Range() { reset(); }
-    int length() { return myEnd - myBegin;}
-    int getBegin() { return myBegin; }
-    int getEnd() { return myEnd; }
-    void setBegin(int begin) { myBegin = begin; }
-    void setEnd(int end) { myEnd = end; }
-    void reset() {
-      myBegin = -1;
-      myEnd = -1;
-    }
-    boolean isDefined() {
-      return (myBegin >= 0 && myEnd >= 0);
-    }
-  }
+  // FIXME: srsly? HashMap of stacks of ranges?
+  private HashMap<Integer, Stack<Range>> myGroupRanges;
 
   private void graphClear() {
     for (Node node: myNodes) {
       node.clear();
     }
-    for (Range range: myGroupRanges) {
-      range.reset();
+    for (Stack<Range> rangeStack: myGroupRanges.values()) {
+      rangeStack.clear();
     }
   }
 
-  // FIXME: which modifiers (private/..., static, etc) should apply to inner classes?
   private abstract class Node {
     ArrayList<Node> myNextNodes;
     ArrayList<Node> getNextNodes() { return myNextNodes; }
@@ -72,7 +72,36 @@ public class Regex
       myNodes.add(this);
     }
 
+    boolean match(String str, int strPos) {
+      if (strPos == str.length() && isEnd()) {
+        return true;
+      }
+      // the case (pos == str.length()) and curNode isn't final will be processed below
+      if (strPos > str.length()) {
+        return false;
+      }
+      // to avoid looping with empty string
+      if (myLastVisitPos == strPos) {
+        return false;
+      }
+      myLastVisitPos = strPos;
+
+      int increment = matchPart(str, strPos);
+      if (increment == -1) {
+        dematchPart();
+        return false;
+      }
+      for (Node node: getNextNodes()) {
+        if (node.match(str, strPos + increment)) {
+          return true;
+        }
+      }
+      dematchPart();
+      return false;
+    }
+
     abstract int matchPart(String str, int strPos);
+    void dematchPart() { /* do nothing */ }
     void clear() { myLastVisitPos = -1; }
     boolean isEnd() { return false; }
     void addNextNode(Node node) {
@@ -222,8 +251,14 @@ public class Regex
     }
     @Override
     int matchPart(String str, int strPos) {
-      myGroupRanges[myGroupId].setBegin(strPos);
+      Range range = new Range();
+      range.setBegin(strPos);
+      myGroupRanges.get(myGroupId).push(range);
       return super.matchPart(str, strPos);
+    }
+
+    void dematchPart() {
+      myGroupRanges.get(myGroupId).pop();
     }
   }
 
@@ -235,8 +270,13 @@ public class Regex
     }
     @Override
     int matchPart(String str, int strPos) {
-      myGroupRanges[myGroupId].setEnd(strPos);
+      assert(!myGroupRanges.get(myGroupId).isEmpty());
+      myGroupRanges.get(myGroupId).peek().setEnd(strPos);
       return super.matchPart(str, strPos);
+    }
+
+    void dematchPart() {
+      myGroupRanges.get(myGroupId).peek().resetEnd();
     }
   }
 
@@ -249,8 +289,14 @@ public class Regex
     }
     @Override
     int matchPart(String str, int strPos) {
-      Range range = myGroupRanges[myGroupId];
-      assert(range.isDefined());
+      // FIXME: probably this will look better with a single try-catch block
+      if (myGroupRanges.get(myGroupId).isEmpty()) {
+        return -1;
+      }
+      Range range = myGroupRanges.get(myGroupId).peek();
+      if (!range.isDefined()) {
+        return -1;
+      }
       if (range.length() > str.length() - strPos) {
         return -1;
       }
@@ -337,11 +383,9 @@ public class Regex
     Node endNode = new EndNode();
     Node termBeginNode = myStartNode;
 
-    // FIXME: refactor this
     Stack<Node> groupStartNodeStack = new Stack<Node>();
     groupStartNodeStack.push(myStartNode);
     Stack<Node> openGroupNodeStack = new Stack<Node>();
-    // FIXME: also refactor this
     Stack<Node> closeGroupNodeStack = new Stack<Node>();
     closeGroupNodeStack.push(endNode);
 
@@ -352,10 +396,9 @@ public class Regex
       if (escaped) {
         if (Character.isDigit(processor.peek())) {
           // group recall
-          int groupRecallId = processor.eatNumber() - 1; // subtract 1, because groups in regex start with 1,
-                                                         // but array indices start with 0
+          int groupRecallId = processor.eatNumber();
           // FIXME: group recall inside the group itself behavior
-          if (myNumGroups <= groupRecallId) {
+          if (myNumGroups < groupRecallId) {
             throw new RegexSyntaxException("Group recall before group definition", processor.getRegex());
           }
           termEndNode = new GroupRecallNode(groupRecallId);
@@ -391,14 +434,15 @@ public class Regex
             quantifierApplicable = false;
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
+            ++myNumGroups;
+            myGroupRanges.put(myNumGroups, new Stack<Range>());
             OpenGroupNode openNode = new OpenGroupNode(myNumGroups);
-            openGroupNodeStack.push(openNode);
+            openGroupNodeStack.push(termBeginNode);
             CloseGroupNode closeNode = new CloseGroupNode(myNumGroups);
             closeGroupNodeStack.push(closeNode);
             termEndNode = new EmptyNode();
             groupStartNodeStack.push(termEndNode);
             openNode.addNextNode(termEndNode);
-            ++myNumGroups;
 
             termBeginNode.addNextNode(openNode);
             termBeginNode = openNode;
@@ -531,31 +575,5 @@ public class Regex
         break;
     }
     return newEmptyNode;
-  }
-
-  private boolean match(String str, int pos, Node curNode) {
-    if (pos == str.length() && curNode.isEnd()) {
-      return true;
-    }
-    // the case (pos == str.length()) and curNode isn't final will be processed below
-    if (pos > str.length()) {
-      return false;
-    }
-
-    // FIXME: is it ok to directly call to fields of a nested class? (also in other places in the code)
-    // to avoid looping with empty string
-    if (curNode.myLastVisitPos == pos) {
-      return false;
-    }
-
-    curNode.myLastVisitPos = pos;
-
-    for (Node nextNode: curNode.getNextNodes()) {
-      int increment = nextNode.matchPart(str, pos);
-      if (increment > -1 && match(str, pos + increment, nextNode)) {
-        return true;
-      }
-    }
-    return false;
   }
 }
