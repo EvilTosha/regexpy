@@ -1,7 +1,5 @@
 package com.eviltosha.regexpy;
 
-import java.util.Stack;
-
 /**
 * Created by eviltosha on 6/28/14.
 */
@@ -34,13 +32,6 @@ class RegexStringProcessor {
     return ch;
   }
 
-  public void eatSilently() throws RegexSyntaxException {
-    if (!hasNext()) {
-      throw new RegexSyntaxException("Unexpected end of string", myRegex);
-    }
-    ++myPos;
-  }
-
   public int eatNumber() throws RegexSyntaxException {
     // FIXME: rewrite with only one throw (and try-catch)
     if (!hasNext()) {
@@ -51,7 +42,7 @@ class RegexStringProcessor {
     }
     int posStart = myPos;
     while (hasNext() && Character.isDigit(peek())) {
-      eatSilently();
+      eat();
     }
     return Integer.parseInt(myRegex.substring(posStart, myPos));
   }

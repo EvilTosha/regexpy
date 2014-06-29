@@ -218,4 +218,11 @@ public class RegexTest {
     assertFalse(regex.match("32/10/2006"));
     assertFalse(regex.match("02/09/206"));
   }
+
+  @Test
+  public void testTest() {
+    Regex regex = new Regex("\\S");
+    assertTrue(regex.match("a"));
+    assertFalse(regex.match("\n"));
+  }
 }

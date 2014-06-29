@@ -25,7 +25,6 @@ public class Regex
     return match(str, 0, myStartNode);
   }
 
-  // FIXME: should it be encapsulated to own class?
   private Node myStartNode;
   private ArrayList<Node> myNodes;
   private int myNumGroups;
@@ -49,17 +48,6 @@ public class Regex
     }
     boolean isDefined() {
       return (myBegin >= 0 && myEnd >= 0);
-    }
-  }
-
-  private class CharRange {
-    char myBegin, myEnd;
-    CharRange(char begin, char end) {
-      myBegin = begin;
-      myEnd = end;
-    }
-    boolean has(char ch) {
-      return (myBegin <= ch && ch <= myEnd);
     }
   }
 
@@ -93,6 +81,17 @@ public class Regex
   }
 
   private class CharRangeNode extends Node {
+    class CharRange {
+      char myBegin, myEnd;
+      CharRange(char begin, char end) {
+        myBegin = begin;
+        myEnd = end;
+      }
+      boolean has(char ch) {
+        return (myBegin <= ch && ch <= myEnd);
+      }
+    }
+
     ArrayList<CharRange> myCharRanges;
     ArrayList<Character> myChars;
     boolean myNegate;
@@ -102,6 +101,76 @@ public class Regex
       myCharRanges = new ArrayList<CharRange>();
       myChars = new ArrayList<Character>();
       myNegate = false;
+    }
+
+    CharRangeNode(RegexStringProcessor processor) {
+      this();
+      // first characters that need special treatment: '^' (negates range),
+      // '-' (in first position it acts like literal hyphen, also can be part of a range),
+      // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
+      char ch = processor.eat();
+      if (ch == '^') {
+        setNegate(true);
+        // we need to perform the first character analysis once more (for special '-' and ']' cases)
+        ch = processor.eat();
+      }
+      // we store parsed char,
+      // if next char is not '-', we add it as a char, otherwise construct range
+      char storedChar = ch;
+      // FIXME: this var seems unnecessary; maybe use Character for storedChar and use null check?
+      boolean charIsStored = true;
+      boolean asRange = false;
+      boolean charRangeFinished = false;
+      while (processor.hasNext() && !charRangeFinished) {
+        ch = processor.eat();
+        switch (ch) {
+          case ']':
+            if (charIsStored) {
+              addChar(storedChar);
+              // if '-' stands right before the closing bracket it's treated as literal '-'
+              if (asRange) {
+                addChar('-');
+              }
+            }
+            charRangeFinished = true;
+            break;
+          case '-':
+            if (!charIsStored || asRange) {
+              // check whether it's the last char in group (like in "[a--]")
+              if (processor.eat() == ']') {
+                if (asRange) {
+                  addCharRange(storedChar, '-');
+                } else {
+                  addChar('-');
+                }
+                charRangeFinished = true;
+              } else {
+                throw new RegexSyntaxException("Incorrect use of hyphen inside char range", processor.getRegex());
+              }
+            }
+            asRange = true;
+            break;
+          default:
+            if (charIsStored) {
+              if (asRange) {
+                addCharRange(storedChar, ch);
+                charIsStored = false;
+              } else {
+                addChar(storedChar);
+                storedChar = ch;
+                // charIsStored remains true
+              }
+            } else {
+              storedChar = ch;
+              charIsStored = true;
+            }
+            asRange = false;
+            break;
+        }
+      }
+      if (!charRangeFinished) {
+        throw new RegexSyntaxException("Unclosed char range", processor.getRegex());
+      }
     }
 
     void setNegate(boolean negate) { myNegate = negate; }
@@ -265,7 +334,7 @@ public class Regex
   }
 
   // FIXME: is this method too long? Yes it is, even Idea says so
-  private void construct(String regex) throws RegexSyntaxException{
+  private void construct(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
     myStartNode = new EmptyNode();
     Node endNode = new EndNode();
@@ -295,51 +364,18 @@ public class Regex
           termEndNode = new GroupRecallNode(groupRecallId);
           termBeginNode.addNextNode(termEndNode);
         } else {
+          // special character ranges
           switch (ch) {
-            case 'd': {
-              // FIXME: code dubbing
-              processor.eatSilently();
-              CharRangeNode rangeNode = new CharRangeNode();
-              rangeNode.addCharRange('0', '9');
-              termEndNode = rangeNode;
+            case 'd':
+            case 'D':
+            case 's':
+            case 'S':
+              termEndNode = constructSpecialCharRange(processor.eat());
               termBeginNode.addNextNode(termEndNode);
               break;
-            }
-            case 'D': {
-              processor.eatSilently();
-              CharRangeNode rangeNode = new CharRangeNode();
-              rangeNode.addCharRange('0', '9');
-              rangeNode.setNegate(true);
-              termEndNode = rangeNode;
-              termBeginNode.addNextNode(termEndNode);
-              break;
-            }
-            case 's': {
-              processor.eatSilently();
-              CharRangeNode rangeNode = new CharRangeNode();
-              rangeNode.addChar('\r');
-              rangeNode.addChar('\n');
-              rangeNode.addChar('\t');
-              rangeNode.addChar('\f');
-              termEndNode = rangeNode;
-              termBeginNode.addNextNode(termEndNode);
-              break;
-            }
-            case 'S': {
-              processor.eatSilently();
-              CharRangeNode rangeNode = new CharRangeNode();
-              rangeNode.addChar('\r');
-              rangeNode.addChar('\n');
-              rangeNode.addChar('\t');
-              rangeNode.addChar('\f');
-              rangeNode.setNegate(true);
-              termEndNode = rangeNode;
-              termBeginNode.addNextNode(termEndNode);
-              break;
-            }
             default:
-              processor.eatSilently();
-              termEndNode = new SymbolNode(ch);
+              // FIXME: if escaped character is not special, exception should be thrown
+              termEndNode = new SymbolNode(processor.eat());
               termBeginNode.addNextNode(termEndNode);
               break;
           }
@@ -383,83 +419,13 @@ public class Regex
             break;
           }
           case '[':
-            CharRangeNode rangeNode = new CharRangeNode();
-            // first characters that need special treatment: '^' (negates range),
-            // '-' (in first position it acts like literal hyphen, also can be part of a range),
-            // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
-            ch = processor.eat();
-            if (ch == '^') {
-              rangeNode.setNegate(true);
-              // we need to perform the first character analysis once more (for special '-' and ']' cases)
-              ch = processor.eat();
-            }
-            // we store parsed char,
-            // if next char is not '-', we add it as a char, otherwise construct range
-            char storedChar = ch;
-            // FIXME: this var seems unnecessary; maybe use Character for storedChar and use null check?
-            boolean charIsStored = true;
-            boolean asRange = false;
-            boolean charRangeFinished = false;
-            while (processor.hasNext() && !charRangeFinished) {
-              ch = processor.eat();
-              switch (ch) {
-                case ']':
-                  if (charIsStored) {
-                    rangeNode.addChar(storedChar);
-                    // if '-' stands right before the closing bracket it's treated as literal '-'
-                    if (asRange) {
-                      rangeNode.addChar('-');
-                    }
-                  }
-                  charRangeFinished = true;
-                  break;
-                case '-':
-                  if (!charIsStored || asRange) {
-                    // check whether it's the last char in group (like in "[a--]")
-                    if (processor.eat() == ']') {
-                      if (asRange) {
-                        rangeNode.addCharRange(storedChar, '-');
-                      } else {
-                        rangeNode.addChar('-');
-                      }
-                      charRangeFinished = true;
-                    } else {
-                      throw new RegexSyntaxException("Incorrect use of hyphen inside char range", processor.getRegex());
-                    }
-                  }
-                  asRange = true;
-                  break;
-                default:
-                  if (charIsStored) {
-                    if (asRange) {
-                      rangeNode.addCharRange(storedChar, ch);
-                      charIsStored = false;
-                    } else {
-                      rangeNode.addChar(storedChar);
-                      storedChar = ch;
-                      // charIsStored remains true
-                    }
-                  } else {
-                    storedChar = ch;
-                    charIsStored = true;
-                  }
-                  asRange = false;
-                  break;
-              }
-            }
-            if (!charRangeFinished) {
-              throw new RegexSyntaxException("Unclosed char range", processor.getRegex());
-            }
-            // FIXME: this is obviously bad code, refactor
-            termEndNode = rangeNode;
+            termEndNode = new CharRangeNode(processor);
             termBeginNode.addNextNode(termEndNode);
             break;
           case '\\':
             escaped = true;
             quantifierApplicable = false;
-            // FIXME: this is not necessary
-            termEndNode = new EmptyNode();
-            termBeginNode.addNextNode(termEndNode);
+            termEndNode = termBeginNode;
             break;
           case '.':
             termEndNode = new AnySymbolNode();
@@ -481,19 +447,42 @@ public class Regex
     termBeginNode.addNextNode(endNode);
   }
 
+  private Node constructSpecialCharRange(char rangeId) {
+    CharRangeNode rangeNode = new CharRangeNode();
+    switch (rangeId) {
+      case 'D':
+        rangeNode.setNegate(true);
+        // fall through
+      case 'd':
+        rangeNode.addCharRange('0', '9');
+      break;
+      case 'S':
+        rangeNode.setNegate(true);
+        // fall through
+      case 's':
+        rangeNode.addChar('\r');
+        rangeNode.addChar('\n');
+        rangeNode.addChar('\t');
+        rangeNode.addChar('\f');
+        rangeNode.addChar(' ');
+        break;
+    }
+    return rangeNode;
+  }
+
   private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode)
       throws RegexSyntaxException {
     Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
-        processor.eatSilently();
+        processor.eat();
         int rangeBegin, rangeEnd;
         // we don't perform checks because eatNumber will perform them
         rangeBegin = processor.eatNumber();
         switch (processor.eat()) {
           case ',':
             if (processor.peek() == '}') {
-              processor.eatSilently();
+              processor.eat();
               rangeEnd = -1; // -1 denotes infinity
             } else {
               rangeEnd = processor.eatNumber();
@@ -517,7 +506,7 @@ public class Regex
         gateNode.addNextNode(newEmptyNode);
         break;
       case '?':
-        processor.eatSilently();
+        processor.eat();
         termBeginNode.addNextNode(newEmptyNode);
         termEndNode.addNextNode(newEmptyNode);
         break;
@@ -525,7 +514,7 @@ public class Regex
         termBeginNode.addNextNode(newEmptyNode);
         // fall through
       case '+':
-        processor.eatSilently();
+        processor.eat();
         termEndNode.addNextNode(termBeginNode);
         // fall through
       default:
