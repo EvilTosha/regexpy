@@ -6,18 +6,13 @@ import java.util.EmptyStackException;
 /**
 * Created by eviltosha on 6/30/14.
 */
-// FIXME: refactor methods/fields order && private/public/...
 abstract class Node {
-  ArrayList<Node> myNextNodes;
-
-  int myLastVisitPos;
-
   Node(MatchState matchState) {
     matchState.addNode(this);
     myNextNodes = new ArrayList<Node>();
   }
 
-  public boolean match(String str, int strPos, MatchState matchState) {
+  boolean match(String str, int strPos, MatchState matchState) {
     // FIXME: too many returns
     if (strPos == str.length() && isEnd()) {
       return true;
@@ -44,7 +39,13 @@ abstract class Node {
     return false;
   }
 
-  boolean matchNext(String str, int strPos, MatchState matchState) {
+  void clear() { myLastVisitPos = -1; }
+  boolean isEnd() { return false; }
+  void addNextNode(Node node) {
+    myNextNodes.add(node);
+  }
+
+  protected boolean matchNext(String str, int strPos, MatchState matchState) {
     for (Node node: myNextNodes) {
       if (node.match(str, strPos, matchState)) {
         return true;
@@ -52,17 +53,16 @@ abstract class Node {
     }
     return false;
   }
-  abstract int matchMe(String str, int strPos, MatchState matchState);
-  void recoverState(MatchState matchState) { /* do nothing */ }
-  void clear() { myLastVisitPos = -1; }
-  boolean isEnd() { return false; }
-  void addNextNode(Node node) {
-    myNextNodes.add(node);
-  }
+
+  protected abstract int matchMe(String str, int strPos, MatchState matchState);
+  protected void recoverState(MatchState matchState) { /* do nothing */ }
+
+  private ArrayList<Node> myNextNodes;
+  private int myLastVisitPos;
 }
 
 class CharRangeNode extends Node {
-  class CharRange {
+  private static class CharRange {
     char myBegin, myEnd;
     CharRange(char begin, char end) {
       myBegin = begin;
@@ -73,10 +73,6 @@ class CharRangeNode extends Node {
     }
   }
 
-  ArrayList<CharRange> myCharRanges;
-  ArrayList<Character> myChars;
-  boolean myNegate;
-
   CharRangeNode(MatchState matchState) {
     super(matchState);
     myCharRanges = new ArrayList<CharRange>();
@@ -84,6 +80,7 @@ class CharRangeNode extends Node {
     myNegate = false;
   }
 
+  // FIXME: probably all parsing methods should be in Regex class
   CharRangeNode(RegexStringProcessor processor, MatchState matchState) {
     this(matchState);
     // first characters that need special treatment: '^' (negates range),
@@ -161,15 +158,15 @@ class CharRangeNode extends Node {
   }
 
   void setNegate(boolean negate) { myNegate = negate; }
-
   void addChar(char ch) {
     myChars.add(ch);
   }
   void addCharRange(char begin, char end) {
     myCharRanges.add(new CharRange(begin, end));
   }
+
   @Override
-  int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, MatchState matchState) {
     if (strPos >= str.length()) {
       return -1;
     }
@@ -189,6 +186,10 @@ class CharRangeNode extends Node {
     }
     return -charFound;
   }
+
+  private ArrayList<CharRange> myCharRanges;
+  private ArrayList<Character> myChars;
+  private boolean myNegate;
 }
 
 class EmptyNode extends Node {
@@ -196,7 +197,7 @@ class EmptyNode extends Node {
     super(matchState);
   }
   @Override
-  int matchMe(String str, int strPos, MatchState matchState) { return 0; }
+  protected int matchMe(String str, int strPos, MatchState matchState) { return 0; }
 }
 
 class EndNode extends EmptyNode {
@@ -208,48 +209,51 @@ class EndNode extends EmptyNode {
 }
 
 class OpenGroupNode extends EmptyNode {
-  int myGroupId;
   OpenGroupNode(int id, MatchState matchState) {
     super(matchState);
     myGroupId = id;
   }
+
   @Override
-  int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, MatchState matchState) {
     matchState.openGroup(myGroupId, strPos);
     return super.matchMe(str, strPos, matchState);
   }
 
-  void recoverState(MatchState matchState) {
+  protected void recoverState(MatchState matchState) {
     matchState.recoverOpenGroup(myGroupId);
   }
+
+  private int myGroupId;
 }
 
 class CloseGroupNode extends EmptyNode {
-  int myGroupId;
   CloseGroupNode(int id, MatchState matchState) {
     super(matchState);
     myGroupId = id;
   }
+
   @Override
-  int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, MatchState matchState) {
     matchState.closeGroup(myGroupId, strPos);
     return super.matchMe(str, strPos, matchState);
   }
 
-  void recoverState(MatchState matchState) {
+  protected void recoverState(MatchState matchState) {
     matchState.recoverCloseGroup(myGroupId);
   }
+
+  private int myGroupId;
 }
 
 // FIXME: group zero (add or specify as excluded functionality)
 class GroupRecallNode extends Node {
-  int myGroupId;
   GroupRecallNode(int id, MatchState matchState) {
     super(matchState);
     myGroupId = id;
   }
   @Override
-  int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, MatchState matchState) {
     Range range;
     try {
       range = matchState.getRange(myGroupId);
@@ -267,22 +271,24 @@ class GroupRecallNode extends Node {
     }
     return range.length();
   }
+
+  private int myGroupId;
 }
 
 class SymbolNode extends Node {
-  char mySymbol;
-
   SymbolNode(char symbol, MatchState matchState) {
     super(matchState);
     mySymbol = symbol;
   }
+
   @Override
-  int matchMe(String str, int pos, MatchState matchState) {
+  protected int matchMe(String str, int pos, MatchState matchState) {
     if (pos < str.length() && str.charAt(pos) == mySymbol) {
       return 1;
     }
     return -1;
   }
+  private char mySymbol;
 }
 
 class AnySymbolNode extends Node {
@@ -290,15 +296,12 @@ class AnySymbolNode extends Node {
     super(matchState);
   }
   @Override
-  int matchMe(String str, int pos, MatchState matchState) {
+  protected int matchMe(String str, int pos, MatchState matchState) {
     return (pos < str.length() ? 1 : -1);
   }
 }
 
 class RangeQuantifierNode extends Node {
-  int myCounter;
-  int myRangeBegin, myRangeEnd;
-  Node myNextNode;
   // FIXME: is it ok to use -1 as an indicator of infinity?
   RangeQuantifierNode(Node nextNode, int rangeBegin, int rangeEnd, MatchState matchState) {
     super(matchState);
@@ -307,13 +310,15 @@ class RangeQuantifierNode extends Node {
     myRangeBegin = rangeBegin;
     myRangeEnd = rangeEnd;
   }
+
   @Override
   void clear() {
     super.clear();
     myCounter = 0;
   }
+
   @Override
-  boolean matchNext(String str, int strPos, MatchState matchState) {
+  protected boolean matchNext(String str, int strPos, MatchState matchState) {
     // check upper bound
     if (myRangeEnd > -1 && myCounter > myRangeEnd) {
       return false;
@@ -324,9 +329,15 @@ class RangeQuantifierNode extends Node {
     // check lower bound, and go further if counter is in range
     return (myRangeBegin <= myCounter && myNextNode.match(str, strPos, matchState));
   }
+
   @Override
-  int matchMe(String str, int pos, MatchState matchState) {
+  protected int matchMe(String str, int pos, MatchState matchState) {
     ++myCounter;
     return 0;
   }
+
+  private int myCounter;
+  // FIXME: use Range class
+  private int myRangeBegin, myRangeEnd;
+  private Node myNextNode;
 }

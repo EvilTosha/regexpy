@@ -8,7 +8,6 @@ import java.util.Stack;
 /**
  * Created by eviltosha on 6/30/14.
  */
-
 class Range {
   // FIXME: is it ok to use -1 as infinity/not set indicator?
   int myBegin, myEnd;

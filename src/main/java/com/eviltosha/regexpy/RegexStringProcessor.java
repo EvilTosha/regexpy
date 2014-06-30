@@ -38,12 +38,8 @@ class RegexStringProcessor implements Iterator<Character> {
   }
 
   public int nextNumber() throws RegexSyntaxException {
-    // FIXME: rewrite with only one throw (and try-catch)
-    if (!hasNext()) {
-      throw new RegexSyntaxException("Unexpected end of string", myRegex);
-    }
-    if (!Character.isDigit(peek())) {
-      throw new RegexSyntaxException("Unexpected non-digit char", myRegex);
+    if (!hasNext() || !Character.isDigit(peek())) {
+      throw new RegexSyntaxException("Unexpected input where number expected", myRegex);
     }
     int posStart = myPos;
     while (hasNext() && Character.isDigit(peek())) {

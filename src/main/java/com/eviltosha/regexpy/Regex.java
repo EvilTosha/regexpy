@@ -8,9 +8,8 @@ import java.util.Stack;
  */
 public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
-    myNumGroups = 0;
     myMatchState = new MatchState();
-    construct(regex);
+    parse(regex);
   }
 
   public boolean match(String str) {
@@ -18,16 +17,16 @@ public class Regex {
     return myStartNode.match(str, 0, myMatchState);
   }
 
+  // FIXME: maybe startNode should be stored in matchState object
   private Node myStartNode;
-  // FIXME: maybe we can just use local var in the construct method
-  private int myNumGroups;
   private MatchState myMatchState;
 
-  private void construct(String regex) throws RegexSyntaxException {
+  private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
     myStartNode = new EmptyNode(myMatchState);
     Node endNode = new EndNode(myMatchState);
     Node termBeginNode = myStartNode;
+    int groupId = 0;
 
     Stack<Node> groupStartNodeStack = new Stack<Node>();
     groupStartNodeStack.push(myStartNode);
@@ -78,11 +77,11 @@ public class Regex {
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
             // FIXME: refactor this (names are not always what they represent)
-            ++myNumGroups;
-            myMatchState.addGroup(myNumGroups);
-            OpenGroupNode openNode = new OpenGroupNode(myNumGroups, myMatchState);
+            ++groupId;
+            myMatchState.addGroup(groupId);
+            OpenGroupNode openNode = new OpenGroupNode(groupId, myMatchState);
             openGroupNodeStack.push(termBeginNode);
-            CloseGroupNode closeNode = new CloseGroupNode(myNumGroups, myMatchState);
+            CloseGroupNode closeNode = new CloseGroupNode(groupId, myMatchState);
             closeGroupNodeStack.push(closeNode);
             termEndNode = new EmptyNode(myMatchState);
             groupStartNodeStack.push(termEndNode);
