@@ -9,6 +9,7 @@ import java.util.Stack;
  */
 public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
+    myStartNode = new EmptyNode();
     myGroupIds = new ArrayList<Integer>();
     parse(regex);
   }
@@ -17,13 +18,11 @@ public class Regex {
     return new Matcher(myStartNode, myGroupIds);
   }
 
-  // FIXME: maybe startNode should be stored in matchState object
-  private Node myStartNode;
-  private ArrayList<Integer> myGroupIds;
+  private final Node myStartNode;
+  private final ArrayList<Integer> myGroupIds;
 
   private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
-    myStartNode = new EmptyNode();
     Node endNode = new EndNode();
     Node termBeginNode = myStartNode;
     int groupId = 0;

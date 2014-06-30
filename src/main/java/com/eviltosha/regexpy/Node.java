@@ -34,7 +34,7 @@ abstract class Node {
     return false;
   }
 
-  private ArrayList<Node> myNextNodes;
+  private final ArrayList<Node> myNextNodes;
 }
 
 class CharRangeNode extends Node {
@@ -162,8 +162,9 @@ class CharRangeNode extends Node {
     return ((charFound ^ myNegate) && matchNext(str, strPos + 1, matcher));
   }
 
-  private ArrayList<CharRange> myCharRanges;
-  private ArrayList<Character> myChars;
+  private final ArrayList<CharRange> myCharRanges;
+  private final ArrayList<Character> myChars;
+  // FIXME: this better be final
   private boolean myNegate;
 }
 
@@ -205,7 +206,7 @@ class OpenGroupNode extends EmptyNode {
     return false;
   }
 
-  private int myGroupId;
+  private final int myGroupId;
 }
 
 class CloseGroupNode extends EmptyNode {
@@ -225,7 +226,7 @@ class CloseGroupNode extends EmptyNode {
     return false;
   }
 
-  private int myGroupId;
+  private final int myGroupId;
 }
 
 // FIXME: group zero (add or specify as excluded functionality)
@@ -255,7 +256,7 @@ class GroupRecallNode extends Node {
     return matchNext(str, strPos + range.length(), matcher);
   }
 
-  private int myGroupId;
+  private final int myGroupId;
 }
 
 class SymbolNode extends Node {
@@ -272,7 +273,7 @@ class SymbolNode extends Node {
     }
     return false;
   }
-  private char mySymbol;
+  private final char mySymbol;
 }
 
 class AnySymbolNode extends Node {
@@ -310,6 +311,6 @@ class RangeQuantifierNode extends EmptyNode {
   }
 
   // FIXME: use Range class
-  private int myRangeBegin, myRangeEnd;
-  private Node myNextNode;
+  private final int myRangeBegin, myRangeEnd;
+  private final Node myNextNode;
 }

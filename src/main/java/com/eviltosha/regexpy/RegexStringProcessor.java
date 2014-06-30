@@ -13,6 +13,7 @@ class RegexStringProcessor implements Iterator<Character> {
     myPos = 0;
   }
 
+  // FIXME: probably we shouldn't have/use this method
   public String getRegex() { return myRegex; }
 
   @Override
@@ -53,6 +54,6 @@ class RegexStringProcessor implements Iterator<Character> {
     throw new RegexSyntaxException("Can't remove elements of regex string", myRegex);
   }
 
-  private String myRegex;
+  private final String myRegex;
   private int myPos; // char at myPos is not processed yet
 }
