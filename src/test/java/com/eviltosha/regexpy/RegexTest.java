@@ -116,6 +116,14 @@ public class RegexTest {
   }
 
   @Test
+  public void testOrEmptyClause() {
+    Regex regex = new Regex("(|a)(||c||)");
+    assertTrue(regex.match(""));
+    assertTrue(regex.match("c"));
+    assertTrue(regex.match("ac"));
+  }
+
+  @Test
   // TODO: multi-digit range
   public void testExactRangeQuantifier() {
     Regex regex = new Regex("a{3}");

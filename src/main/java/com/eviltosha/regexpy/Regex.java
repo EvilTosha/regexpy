@@ -32,360 +32,27 @@ class Range {
 
 public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
-    myNodes = new ArrayList<Node>();
+    myRegex = regex;
     myNumGroups = 0;
-    myGroupRanges = new HashMap<Integer, Stack<Range>>();
+    myMatchState = new MatchState();
     construct(regex);
   }
 
   public boolean match(String str) {
-    graphClear();
-    return myStartNode.match(str, 0);
+    myMatchState.clear();
+    return myStartNode.match(str, 0, myMatchState);
   }
 
+  private String myRegex;
   private Node myStartNode;
-  private ArrayList<Node> myNodes;
+  // FIXME: maybe we can just use local var in the construct method
   private int myNumGroups;
-  // FIXME: should this be array? Also can we be fine without additional class?
-  // FIXME: what modifiers should it have? (final, ...)
-  // FIXME: srsly? HashMap of stacks of ranges?
-  private HashMap<Integer, Stack<Range>> myGroupRanges;
-
-  private void graphClear() {
-    for (Node node: myNodes) {
-      node.clear();
-    }
-    for (Stack<Range> rangeStack: myGroupRanges.values()) {
-      rangeStack.clear();
-    }
-  }
-
-  private abstract class Node {
-    ArrayList<Node> myNextNodes;
-    ArrayList<Node> getNextNodes() { return myNextNodes; }
-
-    int myLastVisitPos;
-
-    Node() {
-      myNextNodes = new ArrayList<Node>();
-      myNodes.add(this);
-    }
-
-    boolean match(String str, int strPos) {
-      if (strPos == str.length() && isEnd()) {
-        return true;
-      }
-      // the case (pos == str.length()) and curNode isn't final will be processed below
-      if (strPos > str.length()) {
-        return false;
-      }
-      // to avoid looping with empty string
-      if (myLastVisitPos == strPos) {
-        return false;
-      }
-      myLastVisitPos = strPos;
-
-      int increment = matchPart(str, strPos);
-      if (increment == -1) {
-        dematchPart();
-        return false;
-      }
-      for (Node node: getNextNodes()) {
-        if (node.match(str, strPos + increment)) {
-          return true;
-        }
-      }
-      dematchPart();
-      return false;
-    }
-
-    abstract int matchPart(String str, int strPos);
-    void dematchPart() { /* do nothing */ }
-    void clear() { myLastVisitPos = -1; }
-    boolean isEnd() { return false; }
-    void addNextNode(Node node) {
-      myNextNodes.add(node);
-    }
-  }
-
-  private class CharRangeNode extends Node {
-    class CharRange {
-      char myBegin, myEnd;
-      CharRange(char begin, char end) {
-        myBegin = begin;
-        myEnd = end;
-      }
-      boolean has(char ch) {
-        return (myBegin <= ch && ch <= myEnd);
-      }
-    }
-
-    ArrayList<CharRange> myCharRanges;
-    ArrayList<Character> myChars;
-    boolean myNegate;
-
-    CharRangeNode() {
-      super();
-      myCharRanges = new ArrayList<CharRange>();
-      myChars = new ArrayList<Character>();
-      myNegate = false;
-    }
-
-    CharRangeNode(RegexStringProcessor processor) {
-      this();
-      // first characters that need special treatment: '^' (negates range),
-      // '-' (in first position it acts like literal hyphen, also can be part of a range),
-      // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
-      char ch = processor.next();
-      if (ch == '^') {
-        setNegate(true);
-        // we need to perform the first character analysis once more (for special '-' and ']' cases)
-        ch = processor.next();
-      }
-      // we store parsed char,
-      // if next char is not '-', we add it as a char, otherwise construct range
-      char storedChar = ch;
-      // FIXME: this var seems unnecessary; maybe use Character for storedChar and use null check?
-      boolean charIsStored = true;
-      boolean asRange = false;
-      boolean charRangeFinished = false;
-      while (processor.hasNext() && !charRangeFinished) {
-        ch = processor.next();
-        switch (ch) {
-          case ']':
-            if (charIsStored) {
-              addChar(storedChar);
-              // if '-' stands right before the closing bracket it's treated as literal '-'
-              if (asRange) {
-                addChar('-');
-              }
-            }
-            charRangeFinished = true;
-            break;
-          case '-':
-            if (!charIsStored || asRange) {
-              // check whether it's the last char in group (like in "[a--]")
-              if (processor.next() == ']') {
-                if (asRange) {
-                  if (storedChar > '-') {
-                    throw new RegexSyntaxException("Invalid char range", processor.getRegex());
-                  }
-                  addCharRange(storedChar, '-');
-                } else {
-                  addChar('-');
-                }
-                charRangeFinished = true;
-              } else {
-                throw new RegexSyntaxException("Incorrect use of hyphen inside char range", processor.getRegex());
-              }
-            }
-            asRange = true;
-            break;
-          default:
-            if (charIsStored) {
-              if (asRange) {
-                if (storedChar > ch) {
-                  throw new RegexSyntaxException("Invalid char range", processor.getRegex());
-                }
-                addCharRange(storedChar, ch);
-                charIsStored = false;
-              } else {
-                addChar(storedChar);
-                storedChar = ch;
-                // charIsStored remains true
-              }
-            } else {
-              storedChar = ch;
-              charIsStored = true;
-            }
-            asRange = false;
-            break;
-        }
-      }
-      if (!charRangeFinished) {
-        throw new RegexSyntaxException("Unclosed char range", processor.getRegex());
-      }
-    }
-
-    void setNegate(boolean negate) { myNegate = negate; }
-
-    void addChar(char ch) {
-      myChars.add(ch);
-    }
-    void addCharRange(char begin, char end) {
-      myCharRanges.add(new CharRange(begin, end));
-    }
-    @Override
-    int matchPart(String str, int strPos) {
-      if (strPos >= str.length()) {
-        return -1;
-      }
-      // use this value for return
-      // FIXME: Use Integer and null?
-      int charFound = (myNegate ? -1 : 1);
-      char strChar = str.charAt(strPos);
-      for (Character character: myChars) {
-        if (strChar == character) {
-          return charFound;
-        }
-      }
-      for (CharRange range: myCharRanges) {
-        if (range.has(strChar)) {
-          return charFound;
-        }
-      }
-      return -charFound;
-    }
-  }
-
-  private class EmptyNode extends Node {
-    @Override
-    int matchPart(String str, int strPos) { return 0; }
-  }
-
-  private class EndNode extends EmptyNode {
-    @Override
-    boolean isEnd() { return true; }
-  }
-
-  private class OpenGroupNode extends EmptyNode {
-    int myGroupId;
-    OpenGroupNode(int id) {
-      super();
-      myGroupId = id;
-    }
-    @Override
-    int matchPart(String str, int strPos) {
-      Range range = new Range();
-      range.setBegin(strPos);
-      myGroupRanges.get(myGroupId).push(range);
-      return super.matchPart(str, strPos);
-    }
-
-    void dematchPart() {
-      myGroupRanges.get(myGroupId).pop();
-    }
-  }
-
-  private class CloseGroupNode extends EmptyNode {
-    int myGroupId;
-    CloseGroupNode(int id) {
-      super();
-      myGroupId = id;
-    }
-    @Override
-    int matchPart(String str, int strPos) {
-      assert(!myGroupRanges.get(myGroupId).isEmpty());
-      myGroupRanges.get(myGroupId).peek().setEnd(strPos);
-      return super.matchPart(str, strPos);
-    }
-
-    void dematchPart() {
-      myGroupRanges.get(myGroupId).peek().resetEnd();
-    }
-  }
-
-  // FIXME: group zero (add or specify as excluded functionality)
-  private class GroupRecallNode extends Node {
-    int myGroupId;
-    GroupRecallNode(int id) {
-      super();
-      myGroupId = id;
-    }
-    @Override
-    int matchPart(String str, int strPos) {
-      // FIXME: probably this will look better with a single try-catch block
-      if (myGroupRanges.get(myGroupId).isEmpty()) {
-        return -1;
-      }
-      Range range = myGroupRanges.get(myGroupId).peek();
-      if (!range.isDefined()) {
-        return -1;
-      }
-      if (range.length() > str.length() - strPos) {
-        return -1;
-      }
-      for (int offset = 0; offset < range.length(); ++offset) {
-        if (range.getBegin() + offset >= str.length() || strPos + offset >= str.length() ||
-            str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
-          return -1;
-        }
-      }
-      return range.length();
-    }
-  }
-
-  private class SymbolNode extends Node {
-    char mySymbol;
-
-    SymbolNode(char symbol) {
-      super();
-      mySymbol = symbol;
-    }
-    @Override
-    int matchPart(String str, int pos) {
-      if (pos < str.length() && str.charAt(pos) == mySymbol) {
-        return 1;
-      }
-      return -1;
-    }
-  }
-
-  private class AnySymbolNode extends Node {
-    @Override
-    int matchPart(String str, int pos) {
-      return (pos < str.length() ? 1 : -1);
-    }
-  }
-
-  private class GateNode extends Node {
-    boolean myOpen;
-
-    GateNode() {
-      super();
-      myOpen = true;
-    }
-
-    void setOpen(boolean open) { myOpen = open; }
-    @Override
-    int matchPart(String str, int pos) {
-      return (myOpen ? 0 : -1);
-    }
-  }
-
-  private class RangeQuantifierNode extends Node {
-    int myCounter;
-    int myRangeBegin, myRangeEnd;
-    // FIXME: does this ruin consistency of the Node's classes?
-    GateNode myGateNode;
-    // FIXME: is it ok to use -1 as an indicator of infinity?
-    RangeQuantifierNode(GateNode gateNode, int rangeBegin, int rangeEnd) {
-      super();
-      myCounter = 0;
-      myGateNode = gateNode;
-      myRangeBegin = rangeBegin;
-      myRangeEnd = rangeEnd;
-    }
-    @Override
-    void clear() {
-      super.clear();
-      myCounter = 0;
-    }
-    @Override
-    int matchPart(String str, int pos) {
-      ++myCounter;
-      if (myRangeEnd > -1 && myCounter > myRangeEnd) {
-        return -1;
-      }
-      myGateNode.setOpen(myRangeBegin <= myCounter && (myCounter <= myRangeEnd || myRangeEnd == -1));
-      return 0;
-    }
-  }
+  private MatchState myMatchState;
 
   private void construct(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
-    myStartNode = new EmptyNode();
-    Node endNode = new EndNode();
+    myStartNode = new EmptyNode(myMatchState);
+    Node endNode = new EndNode(myMatchState);
     Node termBeginNode = myStartNode;
 
     Stack<Node> groupStartNodeStack = new Stack<Node>();
@@ -402,10 +69,8 @@ public class Regex {
         if (Character.isDigit(processor.peek())) {
           // group recall
           int groupRecallId = processor.eatNumber();
-          if (!myGroupRanges.containsKey(groupRecallId)) {
-            myGroupRanges.put(groupRecallId, new Stack<Range>());
-          }
-          termEndNode = new GroupRecallNode(groupRecallId);
+          myMatchState.addGroup(groupRecallId);
+          termEndNode = new GroupRecallNode(groupRecallId, myMatchState);
           termBeginNode.addNextNode(termEndNode);
         } else {
           // special character ranges
@@ -419,7 +84,7 @@ public class Regex {
               break;
             default:
               // FIXME: if escaped character is not special, exception should be thrown
-              termEndNode = new SymbolNode(processor.next());
+              termEndNode = new SymbolNode(processor.next(), myMatchState);
               termBeginNode.addNextNode(termEndNode);
               break;
           }
@@ -440,12 +105,12 @@ public class Regex {
           case '(': { // artificially create scope to reuse some variable names in other cases
             // FIXME: refactor this (names are not always what they represent)
             ++myNumGroups;
-            myGroupRanges.put(myNumGroups, new Stack<Range>());
-            OpenGroupNode openNode = new OpenGroupNode(myNumGroups);
+            myMatchState.addGroup(myNumGroups);
+            OpenGroupNode openNode = new OpenGroupNode(myNumGroups, myMatchState);
             openGroupNodeStack.push(termBeginNode);
-            CloseGroupNode closeNode = new CloseGroupNode(myNumGroups);
+            CloseGroupNode closeNode = new CloseGroupNode(myNumGroups, myMatchState);
             closeGroupNodeStack.push(closeNode);
-            termEndNode = new EmptyNode();
+            termEndNode = new EmptyNode(myMatchState);
             groupStartNodeStack.push(termEndNode);
             openNode.addNextNode(termEndNode);
 
@@ -466,7 +131,7 @@ public class Regex {
             break;
           }
           case '[':
-            termEndNode = new CharRangeNode(processor);
+            termEndNode = new CharRangeNode(processor, myMatchState);
             termBeginNode.addNextNode(termEndNode);
             break;
           case '\\':
@@ -475,11 +140,11 @@ public class Regex {
             termEndNode = termBeginNode;
             break;
           case '.':
-            termEndNode = new AnySymbolNode();
+            termEndNode = new AnySymbolNode(myMatchState);
             termBeginNode.addNextNode(termEndNode);
             break;
           default:
-            termEndNode = new SymbolNode(ch);
+            termEndNode = new SymbolNode(ch, myMatchState);
             termBeginNode.addNextNode(termEndNode);
             break;
         }
@@ -498,7 +163,7 @@ public class Regex {
   }
 
   private Node constructSpecialCharRange(char rangeId) {
-    CharRangeNode rangeNode = new CharRangeNode();
+    CharRangeNode rangeNode = new CharRangeNode(myMatchState);
     switch (rangeId) {
       case 'D':
         rangeNode.setNegate(true);
@@ -522,7 +187,7 @@ public class Regex {
 
   private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode)
       throws RegexSyntaxException {
-    Node newEmptyNode = new EmptyNode();
+    Node newEmptyNode = new EmptyNode(myMatchState);
     switch (processor.peek()) {
       case '{':
         // FIXME: this logic should be encapsulated
@@ -554,9 +219,9 @@ public class Regex {
         if (rangeBegin == 0) {
           termBeginNode.addNextNode(newEmptyNode);
         }
-        GateNode gateNode = new GateNode();
+        GateNode gateNode = new GateNode(myMatchState);
         RangeQuantifierNode rangeNode =
-            new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd);
+            new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd, myMatchState);
         rangeNode.addNextNode(gateNode);
         rangeNode.addNextNode(termBeginNode);
         termEndNode.addNextNode(rangeNode);
