@@ -1,5 +1,6 @@
 package com.eviltosha.regexpy;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -184,10 +185,30 @@ public class RegexTest {
     assertTrue(regex.match("11"));
     assertTrue(regex.match("A13BBB"));
     assertFalse(regex.match("12"));
-    assertFalse(regex.match("1"));
+    assertFalse(regex.match("1A1"));
+    assertFalse(regex.match("1A1A"));
   }
 
-  // TODO: more tests on char ranges (specifically test tricky cases and negation)
+  @Test
+  public void testEmptyRecall() {
+    Regex regex = new Regex("(a*|b)\\1");
+    assertTrue(regex.match(""));
+  }
+
+  // FIXME: there should be no @Ignores
+  @Test
+  @Ignore
+  public void testRecallInsideDefinition() {
+    Regex regex = new Regex("(a|\\1b)*");
+    assertTrue(regex.match("aab"));
+  }
+
+  @Test
+  public void testRecallBeforeDefinition() {
+    Regex regex = new Regex("(\\2*#(a))*");
+    assertTrue(regex.match("#aa#a"));
+  }
+
   @Test
   public void testCharRange() {
     Regex regex = new Regex("[a-p]+");
@@ -204,6 +225,31 @@ public class RegexTest {
     assertFalse(regex.match("+79123456700"));
     assertFalse(regex.match("[123]"));
     assertFalse(regex.match("text with spaces"));
+  }
+
+  @Test
+  public void testNegateHyphenCharRange() {
+    Regex regex = new Regex("[^--b]");
+    assertTrue(regex.match("+"));
+    assertFalse(regex.match("a"));
+  }
+
+  @Test
+  public void testDoubleHyphenCharRange() {
+    Regex regex = new Regex("[--]");
+    assertTrue(regex.match("-"));
+  }
+
+  @Test
+  public void testEscapingInsideCharRange() {
+    Regex regex = new Regex("[\\]]");
+    assertTrue(regex.match("\\]"));
+  }
+
+  @Test
+  public void testBracketInCharRange() {
+    Regex regex = new Regex("([)])");
+    assertTrue(regex.match(")"));
   }
 
   @Test
@@ -224,6 +270,30 @@ public class RegexTest {
     assertTrue(regex.match("ab"));
     assertFalse(regex.match("ac"));
     assertFalse(regex.match("abc"));
+  }
+
+  @Test
+  public void testEscapedCloseBracket() {
+    Regex regex = new Regex("(\\))");
+    assertTrue(regex.match(")"));
+  }
+
+  @Test
+  public void testEscapedBrackets() {
+    Regex regex = new Regex("\\)\\]\\}");
+    assertTrue(regex.match(")]}"));
+  }
+
+  @Test
+  public void testCloseSquareBracket() {
+    Regex regex = new Regex("(])");
+    assertTrue(regex.match("]"));
+  }
+
+  @Test
+  public void testCloseBrace() {
+    Regex regex = new Regex("a}");
+    assertTrue(regex.match("a}"));
   }
 
   // TODO: tests for \D, \s, \S
@@ -265,12 +335,20 @@ public class RegexTest {
     Regex regex = new Regex("a{3,2}");
   }
 
-  // TODO: no exception tests (correct tricky input)
+  @Test(expected = RegexSyntaxException.class)
+  public void testReverseCharRange() {
+    Regex regex = new Regex("[b-a]");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testReverseCharRangeWithHyphen() {
+    Regex regex = new Regex("[b--]");
+  }
 
   @Test
   public void testTest() {
-    Regex regex = new Regex("(a+b)*");
-    assertFalse(regex.match("a"));
+    Regex regex = new Regex("(a(b)?)+\\2");
+    assertTrue(regex.match("ababb"));
   }
 
   // Various tests

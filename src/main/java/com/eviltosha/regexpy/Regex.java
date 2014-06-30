@@ -4,7 +4,6 @@ import java.lang.Override;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Stack;
-import java.util.regex.Pattern;
 
 /**
  * Hello world!
@@ -168,6 +167,9 @@ public class Regex {
               // check whether it's the last char in group (like in "[a--]")
               if (processor.next() == ']') {
                 if (asRange) {
+                  if (storedChar > '-') {
+                    throw new RegexSyntaxException("Invalid char range", processor.getRegex());
+                  }
                   addCharRange(storedChar, '-');
                 } else {
                   addChar('-');
@@ -182,6 +184,9 @@ public class Regex {
           default:
             if (charIsStored) {
               if (asRange) {
+                if (storedChar > ch) {
+                  throw new RegexSyntaxException("Invalid char range", processor.getRegex());
+                }
                 addCharRange(storedChar, ch);
                 charIsStored = false;
               } else {
@@ -397,9 +402,8 @@ public class Regex {
         if (Character.isDigit(processor.peek())) {
           // group recall
           int groupRecallId = processor.eatNumber();
-          // FIXME: group recall inside the group itself behavior
-          if (myNumGroups < groupRecallId) {
-            throw new RegexSyntaxException("Group recall before group definition", processor.getRegex());
+          if (!myGroupRanges.containsKey(groupRecallId)) {
+            myGroupRanges.put(groupRecallId, new Stack<Range>());
           }
           termEndNode = new GroupRecallNode(groupRecallId);
           termBeginNode.addNextNode(termEndNode);
@@ -434,6 +438,7 @@ public class Regex {
             quantifierApplicable = false;
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
+            // FIXME: refactor this (names are not always what they represent)
             ++myNumGroups;
             myGroupRanges.put(myNumGroups, new Stack<Range>());
             OpenGroupNode openNode = new OpenGroupNode(myNumGroups);
