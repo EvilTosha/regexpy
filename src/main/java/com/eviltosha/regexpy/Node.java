@@ -11,19 +11,11 @@ abstract class Node {
     myNextNodes = new ArrayList<Node>();
   }
 
-  protected boolean checkVisit(String str, int strPos, Matcher matcher) {
-    // the case (pos == str.length()) and curNode isn't final will be processed below
-    if (strPos > str.length() || !matcher.visitAndCheck(this, strPos)) {
-      return false;
-    }
-    return true;
+  protected final boolean checkVisit(String str, int strPos, Matcher matcher) {
+    return (strPos <= str.length() && matcher.visitAndCheck(this, strPos));
   }
 
   protected abstract boolean matchMe(String str, int strPos, Matcher matcher);
-
-  void addNextNode(Node node) {
-    myNextNodes.add(node);
-  }
 
   protected boolean matchNext(String str, int strPos, Matcher matcher) {
     for (Node node: myNextNodes) {
@@ -32,6 +24,10 @@ abstract class Node {
       }
     }
     return false;
+  }
+
+  final void addNextNode(Node node) {
+    myNextNodes.add(node);
   }
 
   private final ArrayList<Node> myNextNodes;
@@ -144,9 +140,9 @@ class CharRangeNode extends Node {
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
     if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (strPos == str.length()) { return false; }
 
     boolean charFound = false;
-    if (strPos == str.length()) { return false; }
     char strChar = str.charAt(strPos);
     for (Character character: myChars) {
       if (strChar == character) {
@@ -229,7 +225,6 @@ class CloseGroupNode extends EmptyNode {
   private final int myGroupId;
 }
 
-// FIXME: group zero (add or specify as excluded functionality)
 class GroupRecallNode extends Node {
   GroupRecallNode(int id) {
     super();
@@ -267,12 +262,10 @@ class SymbolNode extends Node {
 
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
-    if (strPos < str.length() && str.charAt(strPos) == mySymbol) {
-      return matchNext(str, strPos + 1, matcher);
-    }
-    return false;
+    return (checkVisit(str, strPos, matcher) && strPos < str.length() &&
+        str.charAt(strPos) == mySymbol && matchNext(str, strPos + 1, matcher));
   }
+
   private final char mySymbol;
 }
 
@@ -282,8 +275,8 @@ class AnySymbolNode extends Node {
   }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
-    return (strPos < str.length() && matchNext(str, strPos + 1, matcher));
+    return (checkVisit(str, strPos, matcher) && strPos < str.length() &&
+        matchNext(str, strPos + 1, matcher));
   }
 }
 

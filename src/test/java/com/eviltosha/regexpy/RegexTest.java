@@ -249,13 +249,12 @@ public class RegexTest {
   @Test
   public void testLettersNumbersHyphens() {
     Regex regex = new Regex("([A-Za-z0-9-]+)");
-    Matcher matcher = regex.matcher();
-    assertTrue(matcher.match("abacaba"));
-    assertTrue(matcher.match("S0me-1337-tEXt-w1th-hyphens"));
-    assertTrue(matcher.match("89123456700"));
-    assertFalse(matcher.match("+79123456700"));
-    assertFalse(matcher.match("[123]"));
-    assertFalse(matcher.match("text with spaces"));
+    assertTrue(regex.match("abacaba"));
+    assertTrue(regex.match("1337-tEXt-w1th-hyph3ns"));
+    assertTrue(regex.match("89123456700"));
+    assertFalse(regex.match("+79123456700"));
+    assertFalse(regex.match("[123]"));
+    assertFalse(regex.match("text with spaces"));
   }
 
   @Test

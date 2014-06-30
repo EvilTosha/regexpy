@@ -4,10 +4,14 @@ import java.util.ArrayList;
 import java.util.Stack;
 
 /**
- * Hello world!
  *
  */
 public class Regex {
+  /**
+   *
+   * @param regex
+   * @throws RegexSyntaxException
+   */
   public Regex(String regex) throws RegexSyntaxException {
     myStartNode = new EmptyNode();
     myGroupIds = new ArrayList<Integer>();
@@ -16,6 +20,10 @@ public class Regex {
 
   public Matcher matcher() {
     return new Matcher(myStartNode, myGroupIds);
+  }
+
+  public boolean match(String str) {
+    return matcher().match(str);
   }
 
   private final Node myStartNode;
