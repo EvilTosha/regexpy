@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Stack;
 
 /**
- * Created by eviltosha on 6/30/14.
+ *
  */
 class Range {
   // FIXME: is it ok to use -1 as infinity/not set indicator?
@@ -85,6 +85,7 @@ public class Matcher {
     myGroupRanges.get(groupId).push(range);
   }
 
+  // FIXME: bad name
   public void recoverOpenGroup(int groupId) {
     myGroupRanges.get(groupId).pop();
   }

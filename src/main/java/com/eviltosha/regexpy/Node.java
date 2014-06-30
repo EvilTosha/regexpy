@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.EmptyStackException;
 
 /**
-* Created by eviltosha on 6/30/14.
+*
 */
 abstract class Node {
   Node() {
@@ -52,83 +52,6 @@ class CharRangeNode extends Node {
     myNegate = false;
   }
 
-  // FIXME: probably all parsing methods should be in Regex class
-  CharRangeNode(RegexStringProcessor processor) {
-    this();
-    // first characters that need special treatment: '^' (negates range),
-    // '-' (in first position it acts like literal hyphen, also can be part of a range),
-    // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
-    char ch = processor.next();
-    if (ch == '^') {
-      setNegate(true);
-      // we need to perform the first character analysis once more (for special '-' and ']' cases)
-      ch = processor.next();
-    }
-    // we store parsed char,
-    // if next char is not '-', we add it as a char, otherwise construct range
-    char storedChar = ch;
-    // FIXME: this var seems unnecessary; maybe use Character for storedChar and use null check?
-    boolean charIsStored = true;
-    boolean asRange = false;
-    boolean charRangeFinished = false;
-    while (processor.hasNext() && !charRangeFinished) {
-      ch = processor.next();
-      switch (ch) {
-        case ']':
-          if (charIsStored) {
-            addChar(storedChar);
-            // if '-' stands right before the closing bracket it's treated as literal '-'
-            if (asRange) {
-              addChar('-');
-            }
-          }
-          charRangeFinished = true;
-          break;
-        case '-':
-          if (!charIsStored || asRange) {
-            // check whether it's the last char in group (like in "[a--]")
-            if (processor.next() == ']') {
-              if (asRange) {
-                if (storedChar > '-') {
-                  throw new RegexSyntaxException("Invalid char range", processor.getRegex());
-                }
-                addCharRange(storedChar, '-');
-              } else {
-                addChar('-');
-              }
-              charRangeFinished = true;
-            } else {
-              throw new RegexSyntaxException("Incorrect use of hyphen inside char range", processor.getRegex());
-            }
-          }
-          asRange = true;
-          break;
-        default:
-          if (charIsStored) {
-            if (asRange) {
-              if (storedChar > ch) {
-                throw new RegexSyntaxException("Invalid char range", processor.getRegex());
-              }
-              addCharRange(storedChar, ch);
-              charIsStored = false;
-            } else {
-              addChar(storedChar);
-              storedChar = ch;
-              // charIsStored remains true
-            }
-          } else {
-            storedChar = ch;
-            charIsStored = true;
-          }
-          asRange = false;
-          break;
-      }
-    }
-    if (!charRangeFinished) {
-      throw new RegexSyntaxException("Unclosed char range", processor.getRegex());
-    }
-  }
-
   void setNegate(boolean negate) { myNegate = negate; }
   void addChar(char ch) {
     myChars.add(ch);
@@ -170,8 +93,7 @@ class EmptyNode extends Node {
   }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
-    return matchNext(str, strPos, matcher);
+    return (checkVisit(str, strPos, matcher) && matchNext(str, strPos, matcher));
   }
 }
 

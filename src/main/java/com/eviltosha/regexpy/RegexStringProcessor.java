@@ -13,9 +13,6 @@ class RegexStringProcessor implements Iterator<Character> {
     myPos = 0;
   }
 
-  // FIXME: probably we shouldn't have/use this method
-  public String getRegex() { return myRegex; }
-
   @Override
   public boolean hasNext() {
     return (myPos < myRegex.length());

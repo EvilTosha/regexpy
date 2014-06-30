@@ -13,6 +13,7 @@ public class Regex {
    * @throws RegexSyntaxException
    */
   public Regex(String regex) throws RegexSyntaxException {
+    myRegexString = regex;
     myStartNode = new EmptyNode();
     myGroupIds = new ArrayList<Integer>();
     parse(regex);
@@ -26,6 +27,7 @@ public class Regex {
     return matcher().match(str);
   }
 
+  private final String myRegexString;
   private final Node myStartNode;
   private final ArrayList<Integer> myGroupIds;
 
@@ -75,7 +77,7 @@ public class Regex {
           case '{':
           case '*':
           case '+':
-            throw new RegexSyntaxException("Incorrect use of quantifier", processor.getRegex());
+            throw new RegexSyntaxException("Incorrect use of quantifier", myRegexString);
           case '|':
             termBeginNode.addNextNode(groupEndNodeStack.peek());
             termEndNode = groupStartNodeStack.peek();
@@ -103,7 +105,7 @@ public class Regex {
           }
           case ')': {
             if (openGroupNodeStack.isEmpty()) {
-              throw new RegexSyntaxException("Unpaired ')'", processor.getRegex());
+              throw new RegexSyntaxException("Unpaired ')'", myRegexString);
             }
             Node openNode = openGroupNodeStack.pop();
             termEndNode = groupEndNodeStack.pop();
@@ -114,7 +116,7 @@ public class Regex {
             break;
           }
           case '[':
-            termEndNode = new CharRangeNode(processor);
+            termEndNode = constructCharRangeNode(processor);
             termBeginNode.addNextNode(termEndNode);
             break;
           case '\\':
@@ -141,9 +143,85 @@ public class Regex {
       }
     }
     if (!openGroupNodeStack.empty()) {
-      throw new RegexSyntaxException("Unpaired '('", processor.getRegex());
+      throw new RegexSyntaxException("Unpaired '('", myRegexString);
     }
     termBeginNode.addNextNode(endNode);
+  }
+
+  private Node constructCharRangeNode(RegexStringProcessor processor) {
+    CharRangeNode charRangeNode = new CharRangeNode();
+    // first characters that need special treatment: '^' (negates range),
+    // '-' (in first position it acts like literal hyphen, also can be part of a range),
+    // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
+    char ch = processor.next();
+    if (ch == '^') {
+      charRangeNode.setNegate(true);
+      // we need to perform the first character analysis once more (for special '-' and ']' cases)
+      ch = processor.next();
+    }
+    // we store parsed char,
+    // if next char is not '-', we add it as a char, otherwise construct range
+    char storedChar = ch;
+    boolean charIsStored = true;
+    boolean asRange = false;
+    boolean charRangeFinished = false;
+    while (processor.hasNext() && !charRangeFinished) {
+      ch = processor.next();
+      switch (ch) {
+        case ']':
+          if (charIsStored) {
+            charRangeNode.addChar(storedChar);
+            // if '-' stands right before the closing bracket it's treated as literal '-'
+            if (asRange) {
+              charRangeNode.addChar('-');
+            }
+          }
+          charRangeFinished = true;
+          break;
+        case '-':
+          if (!charIsStored || asRange) {
+            // check whether it's the last char in group (like in "[a--]")
+            if (processor.next() == ']') {
+              if (asRange) {
+                if (storedChar > '-') {
+                  throw new RegexSyntaxException("Invalid char range", myRegexString);
+                }
+                charRangeNode.addCharRange(storedChar, '-');
+              } else {
+                charRangeNode.addChar('-');
+              }
+              charRangeFinished = true;
+            } else {
+              throw new RegexSyntaxException("Incorrect use of hyphen inside char range", myRegexString);
+            }
+          }
+          asRange = true;
+          break;
+        default:
+          if (charIsStored) {
+            if (asRange) {
+              if (storedChar > ch) {
+                throw new RegexSyntaxException("Invalid char range", myRegexString);
+              }
+              charRangeNode.addCharRange(storedChar, ch);
+              charIsStored = false;
+            } else {
+              charRangeNode.addChar(storedChar);
+              storedChar = ch;
+              // charIsStored remains true
+            }
+          } else {
+            storedChar = ch;
+            charIsStored = true;
+          }
+          asRange = false;
+          break;
+      }
+    }
+    if (!charRangeFinished) {
+      throw new RegexSyntaxException("Unclosed char range", myRegexString);
+    }
+    return charRangeNode;
   }
 
   private Node constructSpecialCharRange(char rangeId) {
@@ -187,7 +265,7 @@ public class Regex {
             } else {
               rangeEnd = processor.nextNumber();
               if (processor.next() != '}') {
-                throw new RegexSyntaxException("Malformed range quantifier", processor.getRegex());
+                throw new RegexSyntaxException("Malformed range quantifier", myRegexString);
               }
             }
             break;
@@ -195,10 +273,10 @@ public class Regex {
             rangeEnd = rangeBegin; // single number range
             break;
           default:
-            throw new RegexSyntaxException("Invalid range quantifier", processor.getRegex());
+            throw new RegexSyntaxException("Invalid range quantifier", myRegexString);
         }
         if (rangeBegin > rangeEnd && rangeEnd > -1) {
-          throw new RegexSyntaxException("Invalid range quantifier parameters", processor.getRegex());
+          throw new RegexSyntaxException("Invalid range quantifier parameters", myRegexString);
         }
         if (rangeBegin == 0) {
           termBeginNode.addNextNode(newEmptyNode);
