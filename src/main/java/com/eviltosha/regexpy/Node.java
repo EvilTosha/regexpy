@@ -11,49 +11,28 @@ abstract class Node {
     myNextNodes = new ArrayList<Node>();
   }
 
-  boolean match(String str, int strPos, Matcher matcher) {
-    // FIXME: too many returns
-    if (strPos == str.length() && isEnd()) {
-      return true;
-    }
+  protected boolean checkVisit(String str, int strPos, Matcher matcher) {
     // the case (pos == str.length()) and curNode isn't final will be processed below
-    if (strPos > str.length()) {
+    if (strPos > str.length() || !matcher.visitAndCheck(this, strPos)) {
       return false;
     }
-    // to avoid looping with empty string
-    if (!matcher.visitAndCheck(this, strPos)) {
-      return false;
-    }
-
-    // FIXME: encapsulate this all to matchMe?
-    int increment = matchMe(str, strPos, matcher);
-    if (increment == -1) {
-      recoverState(matcher);
-      return false;
-    }
-    if (matchNext(str, strPos + increment, matcher)) {
-      return true;
-    }
-    recoverState(matcher);
-    return false;
+    return true;
   }
 
-  boolean isEnd() { return false; }
+  protected abstract boolean matchMe(String str, int strPos, Matcher matcher);
+
   void addNextNode(Node node) {
     myNextNodes.add(node);
   }
 
   protected boolean matchNext(String str, int strPos, Matcher matcher) {
     for (Node node: myNextNodes) {
-      if (node.match(str, strPos, matcher)) {
+      if (node.matchMe(str, strPos, matcher)) {
         return true;
       }
     }
     return false;
   }
-
-  protected abstract int matchMe(String str, int strPos, Matcher matcher);
-  protected void recoverState(Matcher matcher) { /* do nothing */ }
 
   private ArrayList<Node> myNextNodes;
 }
@@ -163,25 +142,24 @@ class CharRangeNode extends Node {
   }
 
   @Override
-  protected int matchMe(String str, int strPos, Matcher matcher) {
-    if (strPos >= str.length()) {
-      return -1;
-    }
-    // use this value for return
-    // FIXME: Use Integer and null?
-    int charFound = (myNegate ? -1 : 1);
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
+
+    boolean charFound = false;
+    if (strPos == str.length()) { return false; }
     char strChar = str.charAt(strPos);
     for (Character character: myChars) {
       if (strChar == character) {
-        return charFound;
+        charFound = true;
       }
     }
     for (CharRange range: myCharRanges) {
       if (range.has(strChar)) {
-        return charFound;
+        charFound = true;
       }
     }
-    return -charFound;
+
+    return ((charFound ^ myNegate) && matchNext(str, strPos + 1, matcher));
   }
 
   private ArrayList<CharRange> myCharRanges;
@@ -194,7 +172,10 @@ class EmptyNode extends Node {
     super();
   }
   @Override
-  protected int matchMe(String str, int strPos, Matcher matcher) { return 0; }
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
+    return matchNext(str, strPos, matcher);
+  }
 }
 
 class EndNode extends EmptyNode {
@@ -202,7 +183,9 @@ class EndNode extends EmptyNode {
     super();
   }
   @Override
-  boolean isEnd() { return true; }
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    return (strPos == str.length());
+  }
 }
 
 class OpenGroupNode extends EmptyNode {
@@ -212,13 +195,14 @@ class OpenGroupNode extends EmptyNode {
   }
 
   @Override
-  protected int matchMe(String str, int strPos, Matcher matcher) {
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
     matcher.openGroup(myGroupId, strPos);
-    return super.matchMe(str, strPos, matcher);
-  }
-
-  protected void recoverState(Matcher matcher) {
+    if (matchNext(str, strPos, matcher)) {
+      return true;
+    }
     matcher.recoverOpenGroup(myGroupId);
+    return false;
   }
 
   private int myGroupId;
@@ -231,13 +215,14 @@ class CloseGroupNode extends EmptyNode {
   }
 
   @Override
-  protected int matchMe(String str, int strPos, Matcher matcher) {
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
     matcher.closeGroup(myGroupId, strPos);
-    return super.matchMe(str, strPos, matcher);
-  }
-
-  protected void recoverState(Matcher matcher) {
+    if (matchNext(str, strPos, matcher)) {
+      return true;
+    }
     matcher.recoverCloseGroup(myGroupId);
+    return false;
   }
 
   private int myGroupId;
@@ -250,23 +235,24 @@ class GroupRecallNode extends Node {
     myGroupId = id;
   }
   @Override
-  protected int matchMe(String str, int strPos, Matcher matcher) {
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
     Range range;
     try {
-      range = matcher.getRange(myGroupId);
+      range = matcher.getGroupRange(myGroupId);
     } catch (EmptyStackException e) {
-      return -1;
+      return false;
     }
     if (!range.isDefined() || strPos + range.length() > str.length() ||
         range.getBegin() + range.length() > str.length()) {
-      return -1;
+      return false;
     }
     for (int offset = 0; offset < range.length(); ++offset) {
       if (str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
-        return -1;
+        return false;
       }
     }
-    return range.length();
+    return matchNext(str, strPos + range.length(), matcher);
   }
 
   private int myGroupId;
@@ -279,11 +265,12 @@ class SymbolNode extends Node {
   }
 
   @Override
-  protected int matchMe(String str, int pos, Matcher matcher) {
-    if (pos < str.length() && str.charAt(pos) == mySymbol) {
-      return 1;
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (strPos < str.length() && str.charAt(strPos) == mySymbol) {
+      return matchNext(str, strPos + 1, matcher);
     }
-    return -1;
+    return false;
   }
   private char mySymbol;
 }
@@ -293,8 +280,9 @@ class AnySymbolNode extends Node {
     super();
   }
   @Override
-  protected int matchMe(String str, int pos, Matcher matcher) {
-    return (pos < str.length() ? 1 : -1);
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    if (!checkVisit(str, strPos, matcher)) { return false; }
+    return (strPos < str.length() && matchNext(str, strPos + 1, matcher));
   }
 }
 
@@ -318,7 +306,7 @@ class RangeQuantifierNode extends EmptyNode {
       return true;
     }
     // check lower bound, and go further if counter is in range
-    return (myRangeBegin <= counter && myNextNode.match(str, strPos, matcher));
+    return (myRangeBegin <= counter && myNextNode.matchMe(str, strPos, matcher));
   }
 
   // FIXME: use Range class
