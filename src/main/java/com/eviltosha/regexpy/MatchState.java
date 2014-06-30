@@ -8,6 +8,30 @@ import java.util.Stack;
 /**
  * Created by eviltosha on 6/30/14.
  */
+
+class Range {
+  // FIXME: is it ok to use -1 as infinity/not set indicator?
+  int myBegin, myEnd;
+
+  Range() { reset(); }
+  int length() {
+    assert(isDefined());
+    return myEnd - myBegin;
+  }
+  int getBegin() { return myBegin; }
+  int getEnd() { return myEnd; }
+  void setBegin(int begin) { myBegin = begin; }
+  void setEnd(int end) { myEnd = end; }
+  void resetEnd() { myEnd = -1; }
+  void reset() {
+    myBegin = -1;
+    myEnd = -1;
+  }
+  boolean isDefined() {
+    return (myBegin >= 0 && myEnd >= 0);
+  }
+}
+
 class MatchState {
   public MatchState() {
     myNodes = new ArrayList<Node>();

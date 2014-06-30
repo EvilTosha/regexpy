@@ -250,19 +250,18 @@ class GroupRecallNode extends Node {
   }
   @Override
   int matchMe(String str, int strPos, MatchState matchState) {
-    // FIXME: probably this will look better with a single try-catch block
     Range range;
     try {
       range = matchState.getRange(myGroupId);
     } catch (EmptyStackException e) {
       return -1;
     }
-    if (!range.isDefined() || range.length() > str.length() - strPos) {
+    if (!range.isDefined() || strPos + range.length() > str.length() ||
+        range.getBegin() + range.length() > str.length()) {
       return -1;
     }
     for (int offset = 0; offset < range.length(); ++offset) {
-      if (range.getBegin() + offset >= str.length() || strPos + offset >= str.length() ||
-          str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
+      if (str.charAt(range.getBegin() + offset) != str.charAt(strPos + offset)) {
         return -1;
       }
     }
@@ -315,16 +314,15 @@ class RangeQuantifierNode extends Node {
   }
   @Override
   boolean matchNext(String str, int strPos, MatchState matchState) {
+    // check upper bound
     if (myRangeEnd > -1 && myCounter > myRangeEnd) {
       return false;
     }
     if (super.matchNext(str, strPos, matchState)) {
       return true;
     }
-    if (myRangeBegin <= myCounter && (myCounter <= myRangeEnd || myRangeEnd == -1)) {
-      return myNextNode.match(str, strPos, matchState);
-    }
-    return false;
+    // check lower bound, and go further if counter is in range
+    return (myRangeBegin <= myCounter && myNextNode.match(str, strPos, matchState));
   }
   @Override
   int matchMe(String str, int pos, MatchState matchState) {

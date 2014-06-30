@@ -37,8 +37,7 @@ class RegexStringProcessor implements Iterator<Character> {
     return ch;
   }
 
-  // FIXME: refactor method name
-  public int eatNumber() throws RegexSyntaxException {
+  public int nextNumber() throws RegexSyntaxException {
     // FIXME: rewrite with only one throw (and try-catch)
     if (!hasNext()) {
       throw new RegexSyntaxException("Unexpected end of string", myRegex);

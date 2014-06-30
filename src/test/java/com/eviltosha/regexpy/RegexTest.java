@@ -355,8 +355,8 @@ public class RegexTest {
 
   @Test
   public void testTest() {
-    Regex regex = new Regex("(a(b)?)+\\2");
-    assertTrue(regex.match("ababb"));
+    Regex regex = new Regex("(aab)\\1");
+    assertTrue(regex.match("aabaab"));
   }
 
   // Various tests

@@ -1,38 +1,13 @@
 package com.eviltosha.regexpy;
 
-import java.lang.Override;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Stack;
 
 /**
  * Hello world!
  *
  */
-
-class Range {
-  // FIXME: is it ok to use -1 as infinity/not set indicator?
-  int myBegin, myEnd;
-
-  Range() { reset(); }
-  int length() { return myEnd - myBegin;}
-  int getBegin() { return myBegin; }
-  int getEnd() { return myEnd; }
-  void setBegin(int begin) { myBegin = begin; }
-  void setEnd(int end) { myEnd = end; }
-  void resetEnd() { myEnd = -1; }
-  void reset() {
-    myBegin = -1;
-    myEnd = -1;
-  }
-  boolean isDefined() {
-    return (myBegin >= 0 && myEnd >= 0);
-  }
-}
-
 public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
-    myRegex = regex;
     myNumGroups = 0;
     myMatchState = new MatchState();
     construct(regex);
@@ -43,7 +18,6 @@ public class Regex {
     return myStartNode.match(str, 0, myMatchState);
   }
 
-  private String myRegex;
   private Node myStartNode;
   // FIXME: maybe we can just use local var in the construct method
   private int myNumGroups;
@@ -68,7 +42,7 @@ public class Regex {
       if (escaped) {
         if (Character.isDigit(processor.peek())) {
           // group recall
-          int groupRecallId = processor.eatNumber();
+          int groupRecallId = processor.nextNumber();
           myMatchState.addGroup(groupRecallId);
           termEndNode = new GroupRecallNode(groupRecallId, myMatchState);
           termBeginNode.addNextNode(termEndNode);
@@ -193,15 +167,15 @@ public class Regex {
         // FIXME: this logic should be encapsulated
         processor.next();
         int rangeBegin, rangeEnd;
-        // we don't perform checks because eatNumber will perform them
-        rangeBegin = processor.eatNumber();
+        // we don't perform checks because nextNumber will perform them
+        rangeBegin = processor.nextNumber();
         switch (processor.next()) {
           case ',':
             if (processor.peek() == '}') {
               processor.next();
               rangeEnd = -1; // -1 denotes infinity
             } else {
-              rangeEnd = processor.eatNumber();
+              rangeEnd = processor.nextNumber();
               if (processor.next() != '}') {
                 throw new RegexSyntaxException("Malformed range quantifier", processor.getRegex());
               }
