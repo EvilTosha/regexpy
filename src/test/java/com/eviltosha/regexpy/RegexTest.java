@@ -20,187 +20,206 @@ public class RegexTest {
   @Test
   public void testEmptyString() {
     Regex regex = new Regex("");
-    assertTrue(regex.match(""));
-    assertFalse(regex.match(" "));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertFalse(matcher.match(" "));
   }
 
   @Test
   public void testExactString() {
     Regex regex = new Regex("abacaba");
-    assertTrue(regex.match("abacaba"));
-    assertFalse(regex.match("abacab"));
-    assertFalse(regex.match("abadaba"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("abacaba"));
+    assertFalse(matcher.match("abacab"));
+    assertFalse(matcher.match("abadaba"));
   }
 
   @Test
   public void testAsterisk() {
     Regex regex = new Regex("a*");
-    assertTrue(regex.match(""));
-    assertTrue(regex.match("a"));
-    assertTrue(regex.match("aaaaaaaaaaaaaa"));
-    assertFalse(regex.match("a*"));
-    assertFalse(regex.match("aaaaab"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertTrue(matcher.match("a"));
+    assertTrue(matcher.match("aaaaaaaaaaaaaa"));
+    assertFalse(matcher.match("a*"));
+    assertFalse(matcher.match("aaaaab"));
   }
 
   @Test
   public void testPlus() {
     Regex regex = new Regex("c+");
-    assertFalse(regex.match(""));
-    assertTrue(regex.match("c"));
-    assertTrue(regex.match("ccccccccccccccc"));
-    assertFalse(regex.match("c+"));
-    assertFalse(regex.match("cccccb"));
+    Matcher matcher = regex.matcher();
+    assertFalse(matcher.match(""));
+    assertTrue(matcher.match("c"));
+    assertTrue(matcher.match("ccccccccccccccc"));
+    assertFalse(matcher.match("c+"));
+    assertFalse(matcher.match("cccccb"));
   }
 
   @Test
   public void testEmptyGroup() {
     Regex regex = new Regex("()");
-    assertTrue(regex.match(""));
-    assertFalse(regex.match("()"));
-    assertFalse(regex.match("Foo() { bar(123); }"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertFalse(matcher.match("()"));
+    assertFalse(matcher.match("Foo() { bar(123); }"));
   }
 
   @Test
   public void testSimpleGroup() {
     Regex regex = new Regex("(b*c)d+");
-    assertTrue(regex.match("bcd"));
-    assertTrue(regex.match("cdd"));
-    assertTrue(regex.match("bbbcd"));
-    assertFalse(regex.match("dd"));
-    assertFalse(regex.match("(bc)d"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("bcd"));
+    assertTrue(matcher.match("cdd"));
+    assertTrue(matcher.match("bbbcd"));
+    assertFalse(matcher.match("dd"));
+    assertFalse(matcher.match("(bc)d"));
   }
 
   @Test
   public void testGroupQuantifiers() {
     Regex regex = new Regex("(b*c)*");
-    assertTrue(regex.match("bbcbc"));
-    assertTrue(regex.match(""));
-    assertTrue(regex.match("cc"));
-    assertFalse(regex.match("bcb"));
-    assertFalse(regex.match("(bc)"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("bbcbc"));
+    assertTrue(matcher.match(""));
+    assertTrue(matcher.match("cc"));
+    assertFalse(matcher.match("bcb"));
+    assertFalse(matcher.match("(bc)"));
   }
 
   @Test
   public void testNestedGroup() {
     Regex regex = new Regex("((c*d)+e)*f");
-    assertTrue(regex.match("ccdcddeccdef"));
-    assertTrue(regex.match("f"));
-    assertTrue(regex.match("def"));
-    assertFalse(regex.match("de"));
-    assertFalse(regex.match("cef"));
-    assertFalse(regex.match("cdedebcef"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("ccdcddeccdef"));
+    assertTrue(matcher.match("f"));
+    assertTrue(matcher.match("def"));
+    assertFalse(matcher.match("de"));
+    assertFalse(matcher.match("cef"));
+    assertFalse(matcher.match("cdedebcef"));
   }
 
   @Test
   public void testSimpleOr() {
     Regex regex = new Regex("a|b");
-    assertTrue(regex.match("a"));
-    assertTrue(regex.match("b"));
-    assertFalse(regex.match(""));
-    assertFalse(regex.match("ab"));
-    assertFalse(regex.match("a|b"));
-    assertFalse(regex.match("aa"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("a"));
+    assertTrue(matcher.match("b"));
+    assertFalse(matcher.match(""));
+    assertFalse(matcher.match("ab"));
+    assertFalse(matcher.match("a|b"));
+    assertFalse(matcher.match("aa"));
   }
 
   @Test
   public void testSimpleOr_2() {
     Regex regex = new Regex("(b|(c|d)*)+");
-    assertTrue(regex.match("b"));
-    assertTrue(regex.match("bc"));
-    assertTrue(regex.match("bcd"));
-    assertTrue(regex.match("bbb"));
-    assertTrue(regex.match("bbcbbdbbcd"));
-    assertTrue(regex.match("c"));
-    assertTrue(regex.match("dd"));
-    assertTrue(regex.match(""));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("b"));
+    assertTrue(matcher.match("bc"));
+    assertTrue(matcher.match("bcd"));
+    assertTrue(matcher.match("bbb"));
+    assertTrue(matcher.match("bbcbbdbbcd"));
+    assertTrue(matcher.match("c"));
+    assertTrue(matcher.match("dd"));
+    assertTrue(matcher.match(""));
   }
 
   @Test
   public void testOrEmptyClause() {
     Regex regex = new Regex("(|a)(||c||)");
-    assertTrue(regex.match(""));
-    assertTrue(regex.match("c"));
-    assertTrue(regex.match("ac"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertTrue(matcher.match("c"));
+    assertTrue(matcher.match("ac"));
   }
 
   @Test
   // TODO: multi-digit range
   public void testExactRangeQuantifier() {
     Regex regex = new Regex("a{3}");
-    assertTrue(regex.match("aaa"));
-    assertFalse(regex.match("aa"));
-    assertFalse(regex.match(""));
-    assertFalse(regex.match("aaaa"));
-    assertFalse(regex.match("a{3}"));
-    assertFalse(regex.match("aaab"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("aaa"));
+    assertFalse(matcher.match("aa"));
+    assertFalse(matcher.match(""));
+    assertFalse(matcher.match("aaaa"));
+    assertFalse(matcher.match("a{3}"));
+    assertFalse(matcher.match("aaab"));
   }
 
   @Test
   public void testSimpleRangeQuantifier() {
     Regex regex = new Regex("(ab){2,4}");
-    assertTrue(regex.match("abab"));
-    assertTrue(regex.match("ababab"));
-    assertFalse(regex.match("ab"));
-    assertFalse(regex.match("ababababab"));
-    assertFalse(regex.match("aab"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("abab"));
+    assertTrue(matcher.match("ababab"));
+    assertFalse(matcher.match("ab"));
+    assertFalse(matcher.match("ababababab"));
+    assertFalse(matcher.match("aab"));
   }
 
   @Test
   public void testOpenRangeQuantifier() {
     Regex regex = new Regex("(a|b){4,}");
-    assertTrue(regex.match("aaaa"));
-    assertTrue(regex.match("bbbbaa"));
-    assertFalse(regex.match("aaa"));
-    assertFalse(regex.match(""));
-    assertFalse(regex.match("aabbc"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("aaaa"));
+    assertTrue(matcher.match("bbbbaa"));
+    assertFalse(matcher.match("aaa"));
+    assertFalse(matcher.match(""));
+    assertFalse(matcher.match("aabbc"));
   }
 
   @Test
   public void testZeroRangeQuantifier() {
     Regex regex = new Regex("a{0,2}");
-    assertTrue(regex.match(""));
-    assertTrue(regex.match("aa"));
-    assertFalse(regex.match("aaa"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertTrue(matcher.match("aa"));
+    assertFalse(matcher.match("aaa"));
   }
 
   @Test
   public void testSimpleGroupRecall() {
     Regex regex = new Regex("(a|b)\\1");
-    assertTrue(regex.match("aa"));
-    assertTrue(regex.match("bb"));
-    assertFalse(regex.match("ab"));
-    assertFalse(regex.match("ba"));
-    assertFalse(regex.match("a1"));
-    assertFalse(regex.match("a\\1"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("aa"));
+    assertTrue(matcher.match("bb"));
+    assertFalse(matcher.match("ab"));
+    assertFalse(matcher.match("ba"));
+    assertFalse(matcher.match("a1"));
+    assertFalse(matcher.match("a\\1"));
   }
 
   // TODO: multi-digit group recall
   @Test
   public void testMultipleGroupRecall() {
     Regex regex = new Regex("(a+(b|c*)\\2)\\2\\1");
-    assertTrue(regex.match("aa"));
-    assertTrue(regex.match("aaccccccaacccc"));
-    assertTrue(regex.match("abbbabb"));
-    assertFalse(regex.match("abcca"));
-    assertFalse(regex.match("aca"));
-    assertFalse(regex.match("abbb"));
-    assertFalse(regex.match("abbbacc"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("aa"));
+    assertTrue(matcher.match("aaccccccaacccc"));
+    assertTrue(matcher.match("abbbabb"));
+    assertFalse(matcher.match("abcca"));
+    assertFalse(matcher.match("aca"));
+    assertFalse(matcher.match("abbb"));
+    assertFalse(matcher.match("abbbacc"));
   }
 
   @Test
   public void testRecallAfterQuantifier() {
     Regex regex = new Regex("(\\d|[a-fA-F])*\\1");
-    assertTrue(regex.match("11"));
-    assertTrue(regex.match("A13BBB"));
-    assertFalse(regex.match("12"));
-    assertFalse(regex.match("1A1"));
-    assertFalse(regex.match("1A1A"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("11"));
+    assertTrue(matcher.match("A13BBB"));
+    assertFalse(matcher.match("12"));
+    assertFalse(matcher.match("1A1"));
+    assertFalse(matcher.match("1A1A"));
   }
 
   @Test
   public void testEmptyRecall() {
     Regex regex = new Regex("(a*|b)\\1");
-    assertTrue(regex.match(""));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
   }
 
   // FIXME: there should be no @Ignores
@@ -208,100 +227,114 @@ public class RegexTest {
   @Ignore
   public void testRecallInsideDefinition() {
     Regex regex = new Regex("(a|\\1b)*");
-    assertTrue(regex.match("aab"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("aab"));
   }
 
   @Test
   public void testRecallBeforeDefinition() {
     Regex regex = new Regex("(\\2*#(a))*");
-    assertTrue(regex.match("#aa#a"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("#aa#a"));
   }
 
   @Test
   public void testCharRange() {
     Regex regex = new Regex("[a-p]+");
-    assertTrue(regex.match("abacaba"));
-    assertFalse(regex.match("abazaba"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("abacaba"));
+    assertFalse(matcher.match("abazaba"));
   }
 
   @Test
   public void testLettersNumbersHyphens() {
     Regex regex = new Regex("([A-Za-z0-9-]+)");
-    assertTrue(regex.match("abacaba"));
-    assertTrue(regex.match("S0me-1337-tEXt-w1th-hyphens"));
-    assertTrue(regex.match("89123456700"));
-    assertFalse(regex.match("+79123456700"));
-    assertFalse(regex.match("[123]"));
-    assertFalse(regex.match("text with spaces"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("abacaba"));
+    assertTrue(matcher.match("S0me-1337-tEXt-w1th-hyphens"));
+    assertTrue(matcher.match("89123456700"));
+    assertFalse(matcher.match("+79123456700"));
+    assertFalse(matcher.match("[123]"));
+    assertFalse(matcher.match("text with spaces"));
   }
 
   @Test
   public void testNegateHyphenCharRange() {
     Regex regex = new Regex("[^--b]");
-    assertTrue(regex.match("+"));
-    assertFalse(regex.match("a"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("+"));
+    assertFalse(matcher.match("a"));
   }
 
   @Test
   public void testDoubleHyphenCharRange() {
     Regex regex = new Regex("[--]");
-    assertTrue(regex.match("-"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("-"));
   }
 
   @Test
   public void testEscapingInsideCharRange() {
     Regex regex = new Regex("[\\]]");
-    assertTrue(regex.match("\\]"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("\\]"));
   }
 
   @Test
   public void testBracketInCharRange() {
     Regex regex = new Regex("([)])");
-    assertTrue(regex.match(")"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(")"));
   }
 
   @Test
   public void testSimpleDot() {
     Regex regex = new Regex("(.)(.)");
-    assertTrue(regex.match(" \t"));
-    assertTrue(regex.match(".."));
-    assertFalse(regex.match("Boobs!"));
-    assertFalse(regex.match("a"));
-    assertFalse(regex.match(". ."));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(" \t"));
+    assertTrue(matcher.match(".."));
+    assertFalse(matcher.match("Boobs!"));
+    assertFalse(matcher.match("a"));
+    assertFalse(matcher.match(". ."));
   }
 
   @Test
   public void testQuestionMark() {
     Regex regex = new Regex(".?[abd-wyz]?");
-    assertTrue(regex.match(""));
-    assertTrue(regex.match("$"));
-    assertTrue(regex.match("ab"));
-    assertFalse(regex.match("ac"));
-    assertFalse(regex.match("abc"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(""));
+    assertTrue(matcher.match("$"));
+    assertTrue(matcher.match("ab"));
+    assertFalse(matcher.match("ac"));
+    assertFalse(matcher.match("abc"));
   }
 
   @Test
   public void testEscapedCloseBracket() {
     Regex regex = new Regex("(\\))");
-    assertTrue(regex.match(")"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(")"));
   }
 
   @Test
   public void testEscapedBrackets() {
     Regex regex = new Regex("\\)\\]\\}");
-    assertTrue(regex.match(")]}"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match(")]}"));
   }
 
   @Test
   public void testCloseSquareBracket() {
     Regex regex = new Regex("(])");
-    assertTrue(regex.match("]"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("]"));
   }
 
   @Test
   public void testCloseBrace() {
     Regex regex = new Regex("a}");
-    assertTrue(regex.match("a}"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("a}"));
   }
 
   // TODO: tests for \D, \s, \S
@@ -309,11 +342,12 @@ public class RegexTest {
   public void testDates() {
     // Date dd/mm/yyyy, or any mix
     Regex regex = new Regex("(0[1-9]|[1-2]\\d|3[01])/(0[1-9]|1[012])/(\\d{4})");
-    assertTrue(regex.match("31/12/2006"));
-    assertTrue(regex.match("02/09/0002")); // weird year, I know
-    assertFalse(regex.match("2/09/2006"));
-    assertFalse(regex.match("32/10/2006"));
-    assertFalse(regex.match("02/09/206"));
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("31/12/2006"));
+    assertTrue(matcher.match("02/09/0002")); // weird year, I know
+    assertFalse(matcher.match("2/09/2006"));
+    assertFalse(matcher.match("32/10/2006"));
+    assertFalse(matcher.match("02/09/206"));
   }
 
   // Exceptions tests
@@ -355,8 +389,14 @@ public class RegexTest {
 
   @Test
   public void testTest() {
-    Regex regex = new Regex("(aab)\\1");
-    assertTrue(regex.match("aabaab"));
+    // Date dd/mm/yyyy, or any mix
+    Regex regex = new Regex("(0[1-9]|[1-2]\\d|3[01])/(0[1-9]|1[012])/(\\d{4})");
+    Matcher matcher = regex.matcher();
+    assertTrue(matcher.match("31/12/2006"));
+    assertTrue(matcher.match("02/09/0002")); // weird year, I know
+    assertFalse(matcher.match("2/09/2006"));
+    assertFalse(matcher.match("32/10/2006"));
+    assertFalse(matcher.match("02/09/206"));
   }
 
   // Various tests

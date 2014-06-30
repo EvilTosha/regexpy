@@ -1,5 +1,6 @@
 package com.eviltosha.regexpy;
 
+import java.util.ArrayList;
 import java.util.Stack;
 
 /**
@@ -8,23 +9,22 @@ import java.util.Stack;
  */
 public class Regex {
   public Regex(String regex) throws RegexSyntaxException {
-    myMatchState = new MatchState();
+    myGroupIds = new ArrayList<Integer>();
     parse(regex);
   }
 
-  public boolean match(String str) {
-    myMatchState.clear();
-    return myStartNode.match(str, 0, myMatchState);
+  public Matcher matcher() {
+    return new Matcher(myStartNode, myGroupIds);
   }
 
   // FIXME: maybe startNode should be stored in matchState object
   private Node myStartNode;
-  private MatchState myMatchState;
+  private ArrayList<Integer> myGroupIds;
 
   private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
-    myStartNode = new EmptyNode(myMatchState);
-    Node endNode = new EndNode(myMatchState);
+    myStartNode = new EmptyNode();
+    Node endNode = new EndNode();
     Node termBeginNode = myStartNode;
     int groupId = 0;
 
@@ -43,8 +43,8 @@ public class Regex {
         if (Character.isDigit(processor.peek())) {
           // group recall
           int groupRecallId = processor.nextNumber();
-          myMatchState.addGroup(groupRecallId);
-          termEndNode = new GroupRecallNode(groupRecallId, myMatchState);
+          myGroupIds.add(groupRecallId);
+          termEndNode = new GroupRecallNode(groupRecallId);
         } else {
           // special character ranges
           switch (processor.peek()) {
@@ -56,7 +56,7 @@ public class Regex {
               break;
             default:
               // FIXME: if escaped character is not special, exception should be thrown
-              termEndNode = new SymbolNode(processor.next(), myMatchState);
+              termEndNode = new SymbolNode(processor.next());
               break;
           }
         }
@@ -76,18 +76,18 @@ public class Regex {
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
             ++groupId;
-            myMatchState.addGroup(groupId);
+            myGroupIds.add(groupId);
             // we store this OpenGroupNode, so after the group is closed quantifiers could use it
             // as a termBeginNode
             openGroupNodeStack.push(termBeginNode);
 
-            Node openNode = new OpenGroupNode(groupId, myMatchState);
+            Node openNode = new OpenGroupNode(groupId);
             termBeginNode.addNextNode(openNode);
             // we create and store CloseGroupNode, so '|' could use it as the end of the group node
-            Node closeNode = new CloseGroupNode(groupId, myMatchState);
+            Node closeNode = new CloseGroupNode(groupId);
             groupEndNodeStack.push(closeNode);
             // we store this EmptyNode, so '|' could use it as the start of the group node
-            termEndNode = new EmptyNode(myMatchState);
+            termEndNode = new EmptyNode();
             groupStartNodeStack.push(termEndNode);
             openNode.addNextNode(termEndNode);
 
@@ -107,7 +107,7 @@ public class Regex {
             break;
           }
           case '[':
-            termEndNode = new CharRangeNode(processor, myMatchState);
+            termEndNode = new CharRangeNode(processor);
             termBeginNode.addNextNode(termEndNode);
             break;
           case '\\':
@@ -116,11 +116,11 @@ public class Regex {
             termEndNode = termBeginNode;
             break;
           case '.':
-            termEndNode = new AnySymbolNode(myMatchState);
+            termEndNode = new AnySymbolNode();
             termBeginNode.addNextNode(termEndNode);
             break;
           default:
-            termEndNode = new SymbolNode(ch, myMatchState);
+            termEndNode = new SymbolNode(ch);
             termBeginNode.addNextNode(termEndNode);
             break;
         }
@@ -140,7 +140,7 @@ public class Regex {
   }
 
   private Node constructSpecialCharRange(char rangeId) {
-    CharRangeNode rangeNode = new CharRangeNode(myMatchState);
+    CharRangeNode rangeNode = new CharRangeNode();
     switch (rangeId) {
       case 'D':
         rangeNode.setNegate(true);
@@ -164,7 +164,7 @@ public class Regex {
 
   private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode)
       throws RegexSyntaxException {
-    Node newEmptyNode = new EmptyNode(myMatchState);
+    Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
         // FIXME: this logic should be encapsulated
@@ -197,7 +197,7 @@ public class Regex {
           termBeginNode.addNextNode(newEmptyNode);
         }
         RangeQuantifierNode rangeNode =
-            new RangeQuantifierNode(newEmptyNode, rangeBegin, rangeEnd, myMatchState);
+            new RangeQuantifierNode(newEmptyNode, rangeBegin, rangeEnd);
         termEndNode.addNextNode(rangeNode);
         rangeNode.addNextNode(termBeginNode);
         break;

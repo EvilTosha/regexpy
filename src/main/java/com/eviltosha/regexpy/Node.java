@@ -7,12 +7,11 @@ import java.util.EmptyStackException;
 * Created by eviltosha on 6/30/14.
 */
 abstract class Node {
-  Node(MatchState matchState) {
-    matchState.addNode(this);
+  Node() {
     myNextNodes = new ArrayList<Node>();
   }
 
-  boolean match(String str, int strPos, MatchState matchState) {
+  boolean match(String str, int strPos, Matcher matcher) {
     // FIXME: too many returns
     if (strPos == str.length() && isEnd()) {
       return true;
@@ -22,44 +21,41 @@ abstract class Node {
       return false;
     }
     // to avoid looping with empty string
-    if (myLastVisitPos == strPos) {
+    if (!matcher.visitAndCheck(this, strPos)) {
       return false;
     }
-    myLastVisitPos = strPos;
 
     // FIXME: encapsulate this all to matchMe?
-    int increment = matchMe(str, strPos, matchState);
+    int increment = matchMe(str, strPos, matcher);
     if (increment == -1) {
-      recoverState(matchState);
+      recoverState(matcher);
       return false;
     }
-    if (matchNext(str, strPos + increment, matchState)) {
+    if (matchNext(str, strPos + increment, matcher)) {
       return true;
     }
-    recoverState(matchState);
+    recoverState(matcher);
     return false;
   }
 
-  void clear() { myLastVisitPos = -1; }
   boolean isEnd() { return false; }
   void addNextNode(Node node) {
     myNextNodes.add(node);
   }
 
-  protected boolean matchNext(String str, int strPos, MatchState matchState) {
+  protected boolean matchNext(String str, int strPos, Matcher matcher) {
     for (Node node: myNextNodes) {
-      if (node.match(str, strPos, matchState)) {
+      if (node.match(str, strPos, matcher)) {
         return true;
       }
     }
     return false;
   }
 
-  protected abstract int matchMe(String str, int strPos, MatchState matchState);
-  protected void recoverState(MatchState matchState) { /* do nothing */ }
+  protected abstract int matchMe(String str, int strPos, Matcher matcher);
+  protected void recoverState(Matcher matcher) { /* do nothing */ }
 
   private ArrayList<Node> myNextNodes;
-  private int myLastVisitPos;
 }
 
 class CharRangeNode extends Node {
@@ -74,16 +70,16 @@ class CharRangeNode extends Node {
     }
   }
 
-  CharRangeNode(MatchState matchState) {
-    super(matchState);
+  CharRangeNode() {
+    super();
     myCharRanges = new ArrayList<CharRange>();
     myChars = new ArrayList<Character>();
     myNegate = false;
   }
 
   // FIXME: probably all parsing methods should be in Regex class
-  CharRangeNode(RegexStringProcessor processor, MatchState matchState) {
-    this(matchState);
+  CharRangeNode(RegexStringProcessor processor) {
+    this();
     // first characters that need special treatment: '^' (negates range),
     // '-' (in first position it acts like literal hyphen, also can be part of a range),
     // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
@@ -167,7 +163,7 @@ class CharRangeNode extends Node {
   }
 
   @Override
-  protected int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, Matcher matcher) {
     if (strPos >= str.length()) {
       return -1;
     }
@@ -194,54 +190,54 @@ class CharRangeNode extends Node {
 }
 
 class EmptyNode extends Node {
-  EmptyNode(MatchState matchState) {
-    super(matchState);
+  EmptyNode() {
+    super();
   }
   @Override
-  protected int matchMe(String str, int strPos, MatchState matchState) { return 0; }
+  protected int matchMe(String str, int strPos, Matcher matcher) { return 0; }
 }
 
 class EndNode extends EmptyNode {
-  EndNode(MatchState matchState) {
-    super(matchState);
+  EndNode() {
+    super();
   }
   @Override
   boolean isEnd() { return true; }
 }
 
 class OpenGroupNode extends EmptyNode {
-  OpenGroupNode(int id, MatchState matchState) {
-    super(matchState);
+  OpenGroupNode(int id) {
+    super();
     myGroupId = id;
   }
 
   @Override
-  protected int matchMe(String str, int strPos, MatchState matchState) {
-    matchState.openGroup(myGroupId, strPos);
-    return super.matchMe(str, strPos, matchState);
+  protected int matchMe(String str, int strPos, Matcher matcher) {
+    matcher.openGroup(myGroupId, strPos);
+    return super.matchMe(str, strPos, matcher);
   }
 
-  protected void recoverState(MatchState matchState) {
-    matchState.recoverOpenGroup(myGroupId);
+  protected void recoverState(Matcher matcher) {
+    matcher.recoverOpenGroup(myGroupId);
   }
 
   private int myGroupId;
 }
 
 class CloseGroupNode extends EmptyNode {
-  CloseGroupNode(int id, MatchState matchState) {
-    super(matchState);
+  CloseGroupNode(int id) {
+    super();
     myGroupId = id;
   }
 
   @Override
-  protected int matchMe(String str, int strPos, MatchState matchState) {
-    matchState.closeGroup(myGroupId, strPos);
-    return super.matchMe(str, strPos, matchState);
+  protected int matchMe(String str, int strPos, Matcher matcher) {
+    matcher.closeGroup(myGroupId, strPos);
+    return super.matchMe(str, strPos, matcher);
   }
 
-  protected void recoverState(MatchState matchState) {
-    matchState.recoverCloseGroup(myGroupId);
+  protected void recoverState(Matcher matcher) {
+    matcher.recoverCloseGroup(myGroupId);
   }
 
   private int myGroupId;
@@ -249,15 +245,15 @@ class CloseGroupNode extends EmptyNode {
 
 // FIXME: group zero (add or specify as excluded functionality)
 class GroupRecallNode extends Node {
-  GroupRecallNode(int id, MatchState matchState) {
-    super(matchState);
+  GroupRecallNode(int id) {
+    super();
     myGroupId = id;
   }
   @Override
-  protected int matchMe(String str, int strPos, MatchState matchState) {
+  protected int matchMe(String str, int strPos, Matcher matcher) {
     Range range;
     try {
-      range = matchState.getRange(myGroupId);
+      range = matcher.getRange(myGroupId);
     } catch (EmptyStackException e) {
       return -1;
     }
@@ -277,13 +273,13 @@ class GroupRecallNode extends Node {
 }
 
 class SymbolNode extends Node {
-  SymbolNode(char symbol, MatchState matchState) {
-    super(matchState);
+  SymbolNode(char symbol) {
+    super();
     mySymbol = symbol;
   }
 
   @Override
-  protected int matchMe(String str, int pos, MatchState matchState) {
+  protected int matchMe(String str, int pos, Matcher matcher) {
     if (pos < str.length() && str.charAt(pos) == mySymbol) {
       return 1;
     }
@@ -293,51 +289,38 @@ class SymbolNode extends Node {
 }
 
 class AnySymbolNode extends Node {
-  AnySymbolNode(MatchState matchState) {
-    super(matchState);
+  AnySymbolNode() {
+    super();
   }
   @Override
-  protected int matchMe(String str, int pos, MatchState matchState) {
+  protected int matchMe(String str, int pos, Matcher matcher) {
     return (pos < str.length() ? 1 : -1);
   }
 }
 
-class RangeQuantifierNode extends Node {
+class RangeQuantifierNode extends EmptyNode {
   // FIXME: is it ok to use -1 as an indicator of infinity?
-  RangeQuantifierNode(Node nextNode, int rangeBegin, int rangeEnd, MatchState matchState) {
-    super(matchState);
-    myCounter = 0;
+  RangeQuantifierNode(Node nextNode, int rangeBegin, int rangeEnd) {
+    super();
     myNextNode = nextNode;
     myRangeBegin = rangeBegin;
     myRangeEnd = rangeEnd;
   }
 
   @Override
-  void clear() {
-    super.clear();
-    myCounter = 0;
-  }
-
-  @Override
-  protected boolean matchNext(String str, int strPos, MatchState matchState) {
+  protected boolean matchNext(String str, int strPos, Matcher matcher) {
+    int counter = matcher.visitCount(this);
     // check upper bound
-    if (myRangeEnd > -1 && myCounter > myRangeEnd) {
+    if (myRangeEnd > -1 && counter > myRangeEnd) {
       return false;
     }
-    if (super.matchNext(str, strPos, matchState)) {
+    if (super.matchNext(str, strPos, matcher)) {
       return true;
     }
     // check lower bound, and go further if counter is in range
-    return (myRangeBegin <= myCounter && myNextNode.match(str, strPos, matchState));
+    return (myRangeBegin <= counter && myNextNode.match(str, strPos, matcher));
   }
 
-  @Override
-  protected int matchMe(String str, int pos, MatchState matchState) {
-    ++myCounter;
-    return 0;
-  }
-
-  private int myCounter;
   // FIXME: use Range class
   private int myRangeBegin, myRangeEnd;
   private Node myNextNode;
