@@ -100,16 +100,6 @@ class EmptyNode extends Node {
   }
 }
 
-class EndNode extends EmptyNode {
-  EndNode() {
-    super();
-  }
-  @Override
-  protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    return (strPos == str.length());
-  }
-}
-
 class OpenGroupNode extends EmptyNode {
   OpenGroupNode(int id) {
     super();
@@ -148,6 +138,18 @@ class CloseGroupNode extends EmptyNode {
   }
 
   private final int myGroupId;
+}
+
+class EndNode extends CloseGroupNode {
+  EndNode() {
+    // EndNode always has capturing id = 0
+    super(0);
+  }
+  @Override
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    matcher.closeGroup(0, strPos);
+    return (strPos == str.length());
+  }
 }
 
 class GroupRecallNode extends Node {

@@ -1,12 +1,9 @@
 package com.eviltosha.regexpy;
 
-import java.util.ArrayList;
-import java.util.EmptyStackException;
-import java.util.HashMap;
-import java.util.Stack;
+import java.util.*;
 
 public class Matcher {
-  public Matcher(Node startNode, ArrayList<Integer> groupIds) {
+  public Matcher(Node startNode, HashSet<Integer> groupIds) {
     myStartNode = startNode;
     myGroupRanges = new HashMap<Integer, Stack<Range>>();
     for (int groupId: groupIds) {
@@ -17,6 +14,7 @@ public class Matcher {
   }
 
   public boolean match(String str) {
+    myLastString = str;
     clear();
     return myStartNode.matchMe(str, 0, this);
   }
@@ -84,4 +82,5 @@ public class Matcher {
   private final Node myStartNode;
   private final HashMap<Node, Integer> myLastVisitPositions;
   private final HashMap<Node, Integer> myVisitCounters;
+  private String myLastString;
 }

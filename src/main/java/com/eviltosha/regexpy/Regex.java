@@ -1,6 +1,8 @@
 package com.eviltosha.regexpy;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -14,8 +16,9 @@ public class Regex {
    */
   public Regex(String regex) throws RegexSyntaxException {
     myRegexString = regex;
-    myStartNode = new EmptyNode();
-    myGroupIds = new ArrayList<Integer>();
+    myGroupIds = new HashSet<Integer>();
+    myGroupIds.add(0);
+    myStartNode = new OpenGroupNode(0);
     parse(regex);
   }
 
@@ -29,7 +32,7 @@ public class Regex {
 
   private final String myRegexString;
   private final Node myStartNode;
-  private final ArrayList<Integer> myGroupIds;
+  private final HashSet<Integer> myGroupIds;
 
   private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
