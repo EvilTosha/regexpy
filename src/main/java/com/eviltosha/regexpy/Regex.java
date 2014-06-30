@@ -148,7 +148,6 @@ public class Regex {
     termBeginNode.addNextNode(endNode);
   }
 
-  // FIXME: this method is too long, refactor
   private Node constructCharRangeNode(RegexStringProcessor processor) {
     CharRangeNode charRangeNode = new CharRangeNode();
     // first characters that need special treatment: '^' (negates range),
@@ -161,16 +160,17 @@ public class Regex {
       ch = processor.next();
     }
     // we store parsed char,
-    // if next char is not '-', we add it as a char, otherwise construct range
-    char storedChar = ch;
-    boolean charIsStored = true;
+    // if the next char is not '-', we add it as a char, otherwise construct range
+    // if storedChar == null, we don't have any char stored
+    Character storedChar = ch;
     boolean asRange = false;
+    // flag of completion
     boolean charRangeFinished = false;
     while (processor.hasNext() && !charRangeFinished) {
       ch = processor.next();
       switch (ch) {
         case ']':
-          if (charIsStored) {
+          if (storedChar != null) {
             charRangeNode.addChar(storedChar);
             // if '-' stands right before the closing bracket it's treated as literal '-'
             if (asRange) {
@@ -180,14 +180,15 @@ public class Regex {
           charRangeFinished = true;
           break;
         case '-':
-          if (!charIsStored || asRange) {
+          if (storedChar == null || asRange) {
             // check whether it's the last char in group (like in "[a--]")
             if (processor.next() == ']') {
               if (asRange) {
-                if (storedChar > '-') {
+                try {
+                  charRangeNode.addCharRange(storedChar, '-');
+                } catch (IllegalArgumentException e) {
                   throw new RegexSyntaxException("Invalid char range", myRegexString);
                 }
-                charRangeNode.addCharRange(storedChar, '-');
               } else {
                 charRangeNode.addChar('-');
               }
@@ -199,13 +200,14 @@ public class Regex {
           asRange = true;
           break;
         default:
-          if (charIsStored) {
+          if (storedChar != null) {
             if (asRange) {
-              if (storedChar > ch) {
+              try {
+                charRangeNode.addCharRange(storedChar, ch);
+              } catch (IllegalArgumentException e) {
                 throw new RegexSyntaxException("Invalid char range", myRegexString);
               }
-              charRangeNode.addCharRange(storedChar, ch);
-              charIsStored = false;
+              storedChar = null;
             } else {
               charRangeNode.addChar(storedChar);
               storedChar = ch;
@@ -213,7 +215,6 @@ public class Regex {
             }
           } else {
             storedChar = ch;
-            charIsStored = true;
           }
           asRange = false;
           break;
@@ -253,36 +254,12 @@ public class Regex {
     Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
-        // FIXME: this logic should be encapsulated
         processor.next();
-        InfinityRange range = new InfinityRange();
-        range.setBegin(processor.nextNumber());
-        switch (processor.next()) {
-          case ',':
-            if (processor.peek() == '}') {
-              processor.next();
-            } else {
-              try {
-                range.setEnd(processor.nextNumber());
-              } catch (IllegalArgumentException e) {
-                throw new RegexSyntaxException("Invalid range quantifier parameters", myRegexString);
-              }
-              if (processor.next() != '}') {
-                throw new RegexSyntaxException("Malformed range quantifier", myRegexString);
-              }
-            }
-            break;
-          case '}':
-            range.setEnd(range.getBegin());
-            break;
-          default:
-            throw new RegexSyntaxException("Invalid range quantifier", myRegexString);
-        }
+        InfinityRange range = constructInfinityRange(processor);
         if (range.getBegin() == 0) {
           termBeginNode.addNextNode(newEmptyNode);
         }
-        RangeQuantifierNode rangeNode =
-            new RangeQuantifierNode(range, newEmptyNode);
+        RangeQuantifierNode rangeNode = new RangeQuantifierNode(range, newEmptyNode);
         termEndNode.addNextNode(rangeNode);
         rangeNode.addNextNode(termBeginNode);
         break;
@@ -304,5 +281,33 @@ public class Regex {
         break;
     }
     return newEmptyNode;
+  }
+
+  private InfinityRange constructInfinityRange(RegexStringProcessor processor) {
+    InfinityRange range = new InfinityRange();
+    range.setBegin(processor.nextNumber());
+    switch (processor.next()) {
+      case ',':
+        if (processor.peek() == '}') {
+          processor.next();
+        } else {
+          try {
+            range.setEnd(processor.nextNumber());
+          } catch (IllegalArgumentException e) {
+            throw new RegexSyntaxException("Invalid range quantifier parameters", myRegexString);
+          }
+          if (processor.next() != '}') {
+            throw new RegexSyntaxException("Malformed range quantifier", myRegexString);
+          }
+        }
+        break;
+      case '}':
+        range.setEnd(range.getBegin());
+        break;
+      default:
+        throw new RegexSyntaxException("Invalid range quantifier", myRegexString);
+    }
+
+    return range;
   }
 }

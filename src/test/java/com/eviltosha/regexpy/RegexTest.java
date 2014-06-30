@@ -280,6 +280,12 @@ public class RegexTest {
   }
 
   @Test
+  public void testFirstPosCloseBracketCharRange() {
+    Regex regex = new Regex("[]]");
+    assertTrue(regex.match("]"));
+  }
+
+  @Test
   public void testBracketInCharRange() {
     Regex regex = new Regex("([)])");
     Matcher matcher = regex.matcher();
@@ -384,6 +390,11 @@ public class RegexTest {
   @Test(expected = RegexSyntaxException.class)
   public void testReverseCharRangeWithHyphen() {
     Regex regex = new Regex("[b--]");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testReverseCharRangeWithHyphen_2() {
+    Regex regex = new Regex("[--+]");
   }
 
   @Test

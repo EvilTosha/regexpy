@@ -36,7 +36,10 @@ abstract class Node {
 class CharRangeNode extends Node {
   private static class CharRange {
     char myBegin, myEnd;
-    CharRange(char begin, char end) {
+    CharRange(char begin, char end) throws IllegalArgumentException {
+      if (begin > end) {
+        throw new IllegalArgumentException("Char range begin > end");
+      }
       myBegin = begin;
       myEnd = end;
     }
@@ -56,7 +59,7 @@ class CharRangeNode extends Node {
   void addChar(char ch) {
     myChars.add(ch);
   }
-  void addCharRange(char begin, char end) {
+  void addCharRange(char begin, char end) throws IllegalArgumentException {
     myCharRanges.add(new CharRange(begin, end));
   }
 
