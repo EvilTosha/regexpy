@@ -148,6 +148,7 @@ public class Regex {
     termBeginNode.addNextNode(endNode);
   }
 
+  // FIXME: this method is too long, refactor
   private Node constructCharRangeNode(RegexStringProcessor processor) {
     CharRangeNode charRangeNode = new CharRangeNode();
     // first characters that need special treatment: '^' (negates range),
@@ -254,35 +255,34 @@ public class Regex {
       case '{':
         // FIXME: this logic should be encapsulated
         processor.next();
-        int rangeBegin, rangeEnd;
-        // we don't perform checks because nextNumber will perform them
-        rangeBegin = processor.nextNumber();
+        InfinityRange range = new InfinityRange();
+        range.setBegin(processor.nextNumber());
         switch (processor.next()) {
           case ',':
             if (processor.peek() == '}') {
               processor.next();
-              rangeEnd = -1; // -1 denotes infinity
             } else {
-              rangeEnd = processor.nextNumber();
+              try {
+                range.setEnd(processor.nextNumber());
+              } catch (IllegalArgumentException e) {
+                throw new RegexSyntaxException("Invalid range quantifier parameters", myRegexString);
+              }
               if (processor.next() != '}') {
                 throw new RegexSyntaxException("Malformed range quantifier", myRegexString);
               }
             }
             break;
           case '}':
-            rangeEnd = rangeBegin; // single number range
+            range.setEnd(range.getBegin());
             break;
           default:
             throw new RegexSyntaxException("Invalid range quantifier", myRegexString);
         }
-        if (rangeBegin > rangeEnd && rangeEnd > -1) {
-          throw new RegexSyntaxException("Invalid range quantifier parameters", myRegexString);
-        }
-        if (rangeBegin == 0) {
+        if (range.getBegin() == 0) {
           termBeginNode.addNextNode(newEmptyNode);
         }
         RangeQuantifierNode rangeNode =
-            new RangeQuantifierNode(newEmptyNode, rangeBegin, rangeEnd);
+            new RangeQuantifierNode(range, newEmptyNode);
         termEndNode.addNextNode(rangeNode);
         rangeNode.addNextNode(termBeginNode);
         break;

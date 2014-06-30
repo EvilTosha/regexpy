@@ -5,7 +5,7 @@ import java.util.Iterator;
 /**
 * Created by eviltosha on 6/28/14.
 */
-// FIXME: probably java.util.Scanner or another standard String iterator can be used instead of this class
+// FIXME: probably java.util.Scanner or another standard Character iterator can be used instead of this class
 // Class for processing string representation of regex
 class RegexStringProcessor implements Iterator<Character> {
   public RegexStringProcessor(String regex) {

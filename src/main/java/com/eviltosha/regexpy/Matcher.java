@@ -5,38 +5,6 @@ import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.Stack;
 
-/**
- *
- */
-class Range {
-  // FIXME: is it ok to use -1 as infinity/not set indicator?
-  Range() { reset(); }
-
-  int length() {
-    assert(isDefined());
-    return myEnd - myBegin;
-  }
-
-  int getBegin() { return myBegin; }
-  int getEnd() { return myEnd; }
-  void setBegin(int begin) { myBegin = begin; }
-  void setEnd(int end) { myEnd = end; }
-  boolean beginIsSet() { return (myBegin >= 0); }
-  boolean endIsSet() { return (myEnd >= 0); }
-  void resetEnd() { myEnd = -1; }
-
-  void reset() {
-    myBegin = -1;
-    myEnd = -1;
-  }
-
-  boolean isDefined() {
-    return (beginIsSet() && endIsSet());
-  }
-
-  private int myBegin, myEnd;
-}
-
 public class Matcher {
   public Matcher(Node startNode, ArrayList<Integer> groupIds) {
     myStartNode = startNode;

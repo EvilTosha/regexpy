@@ -204,28 +204,26 @@ class AnySymbolNode extends Node {
 
 class RangeQuantifierNode extends EmptyNode {
   // FIXME: is it ok to use -1 as an indicator of infinity?
-  RangeQuantifierNode(Node nextNode, int rangeBegin, int rangeEnd) {
+  RangeQuantifierNode(InfinityRange range, Node nextNode) {
     super();
+    myRange = range;
     myNextNode = nextNode;
-    myRangeBegin = rangeBegin;
-    myRangeEnd = rangeEnd;
   }
 
   @Override
   protected boolean matchNext(String str, int strPos, Matcher matcher) {
     int counter = matcher.visitCount(this);
-    // check upper bound
-    if (myRangeEnd > -1 && counter > myRangeEnd) {
+    if (!myRange.checkUpper(counter)) {
       return false;
     }
     if (super.matchNext(str, strPos, matcher)) {
       return true;
     }
     // check lower bound, and go further if counter is in range
-    return (myRangeBegin <= counter && myNextNode.matchMe(str, strPos, matcher));
+    return (myRange.checkLower(counter) && myNextNode.matchMe(str, strPos, matcher));
   }
 
   // FIXME: use Range class
-  private final int myRangeBegin, myRangeEnd;
+  private final InfinityRange myRange;
   private final Node myNextNode;
 }
