@@ -156,7 +156,7 @@ public class RegexTest {
   }
 
   @Test
-  public void zeroRangeQuantifierTest() {
+  public void testZeroRangeQuantifier() {
     Regex regex = new Regex("a{0,2}");
     assertTrue(regex.match(""));
     assertTrue(regex.match("aa"));

@@ -296,32 +296,15 @@ class AnySymbolNode extends Node {
   }
 }
 
-// FIXME: refactor: remove this class
-class GateNode extends Node {
-  boolean myOpen;
-
-  GateNode(MatchState matchState) {
-    super(matchState);
-    myOpen = true;
-  }
-
-  void setOpen(boolean open) { myOpen = open; }
-  @Override
-  int matchMe(String str, int pos, MatchState matchState) {
-    return (myOpen ? 0 : -1);
-  }
-}
-
 class RangeQuantifierNode extends Node {
   int myCounter;
   int myRangeBegin, myRangeEnd;
-  // FIXME: does this ruin consistency of the Node's classes?
-  GateNode myGateNode;
+  Node myNextNode;
   // FIXME: is it ok to use -1 as an indicator of infinity?
-  RangeQuantifierNode(GateNode gateNode, int rangeBegin, int rangeEnd, MatchState matchState) {
+  RangeQuantifierNode(Node nextNode, int rangeBegin, int rangeEnd, MatchState matchState) {
     super(matchState);
     myCounter = 0;
-    myGateNode = gateNode;
+    myNextNode = nextNode;
     myRangeBegin = rangeBegin;
     myRangeEnd = rangeEnd;
   }
@@ -331,12 +314,21 @@ class RangeQuantifierNode extends Node {
     myCounter = 0;
   }
   @Override
+  boolean matchNext(String str, int strPos, MatchState matchState) {
+    if (myRangeEnd > -1 && myCounter > myRangeEnd) {
+      return false;
+    }
+    if (super.matchNext(str, strPos, matchState)) {
+      return true;
+    }
+    if (myRangeBegin <= myCounter && (myCounter <= myRangeEnd || myRangeEnd == -1)) {
+      return myNextNode.match(str, strPos, matchState);
+    }
+    return false;
+  }
+  @Override
   int matchMe(String str, int pos, MatchState matchState) {
     ++myCounter;
-    if (myRangeEnd > -1 && myCounter > myRangeEnd) {
-      return -1;
-    }
-    myGateNode.setOpen(myRangeBegin <= myCounter && (myCounter <= myRangeEnd || myRangeEnd == -1));
     return 0;
   }
 }

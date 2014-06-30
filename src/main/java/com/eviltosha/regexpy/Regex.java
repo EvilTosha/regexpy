@@ -219,13 +219,10 @@ public class Regex {
         if (rangeBegin == 0) {
           termBeginNode.addNextNode(newEmptyNode);
         }
-        GateNode gateNode = new GateNode(myMatchState);
         RangeQuantifierNode rangeNode =
-            new RangeQuantifierNode(gateNode, rangeBegin, rangeEnd, myMatchState);
-        rangeNode.addNextNode(gateNode);
-        rangeNode.addNextNode(termBeginNode);
+            new RangeQuantifierNode(newEmptyNode, rangeBegin, rangeEnd, myMatchState);
         termEndNode.addNextNode(rangeNode);
-        gateNode.addNextNode(newEmptyNode);
+        rangeNode.addNextNode(termBeginNode);
         break;
       case '?':
         processor.next();
