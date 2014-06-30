@@ -27,6 +27,7 @@ abstract class Node {
     }
     myLastVisitPos = strPos;
 
+    // FIXME: encapsulate this all to matchMe?
     int increment = matchMe(str, strPos, matchState);
     if (increment == -1) {
       recoverState(matchState);

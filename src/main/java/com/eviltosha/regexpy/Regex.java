@@ -28,11 +28,12 @@ public class Regex {
     Node termBeginNode = myStartNode;
     int groupId = 0;
 
+    // TODO: write documentation for these stacks
     Stack<Node> groupStartNodeStack = new Stack<Node>();
     groupStartNodeStack.push(myStartNode);
+    Stack<Node> groupEndNodeStack = new Stack<Node>();
+    groupEndNodeStack.push(endNode);
     Stack<Node> openGroupNodeStack = new Stack<Node>();
-    Stack<Node> closeGroupNodeStack = new Stack<Node>();
-    closeGroupNodeStack.push(endNode);
 
     boolean escaped = false;
     while (processor.hasNext()) {
@@ -44,7 +45,6 @@ public class Regex {
           int groupRecallId = processor.nextNumber();
           myMatchState.addGroup(groupRecallId);
           termEndNode = new GroupRecallNode(groupRecallId, myMatchState);
-          termBeginNode.addNextNode(termEndNode);
         } else {
           // special character ranges
           switch (processor.peek()) {
@@ -53,15 +53,14 @@ public class Regex {
             case 's':
             case 'S':
               termEndNode = constructSpecialCharRange(processor.next());
-              termBeginNode.addNextNode(termEndNode);
               break;
             default:
               // FIXME: if escaped character is not special, exception should be thrown
               termEndNode = new SymbolNode(processor.next(), myMatchState);
-              termBeginNode.addNextNode(termEndNode);
               break;
           }
         }
+        termBeginNode.addNextNode(termEndNode);
         escaped = false;
       } else {
         char ch = processor.next();
@@ -71,24 +70,27 @@ public class Regex {
           case '+':
             throw new RegexSyntaxException("Incorrect use of quantifier", processor.getRegex());
           case '|':
-            termBeginNode.addNextNode(closeGroupNodeStack.peek());
+            termBeginNode.addNextNode(groupEndNodeStack.peek());
             termEndNode = groupStartNodeStack.peek();
             quantifierApplicable = false;
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
-            // FIXME: refactor this (names are not always what they represent)
             ++groupId;
             myMatchState.addGroup(groupId);
-            OpenGroupNode openNode = new OpenGroupNode(groupId, myMatchState);
+            // we store this OpenGroupNode, so after the group is closed quantifiers could use it
+            // as a termBeginNode
             openGroupNodeStack.push(termBeginNode);
-            CloseGroupNode closeNode = new CloseGroupNode(groupId, myMatchState);
-            closeGroupNodeStack.push(closeNode);
+
+            Node openNode = new OpenGroupNode(groupId, myMatchState);
+            termBeginNode.addNextNode(openNode);
+            // we create and store CloseGroupNode, so '|' could use it as the end of the group node
+            Node closeNode = new CloseGroupNode(groupId, myMatchState);
+            groupEndNodeStack.push(closeNode);
+            // we store this EmptyNode, so '|' could use it as the start of the group node
             termEndNode = new EmptyNode(myMatchState);
             groupStartNodeStack.push(termEndNode);
             openNode.addNextNode(termEndNode);
 
-            termBeginNode.addNextNode(openNode);
-            termBeginNode = openNode;
             quantifierApplicable = false;
             break;
           }
@@ -97,10 +99,11 @@ public class Regex {
               throw new RegexSyntaxException("Unpaired ')'", processor.getRegex());
             }
             Node openNode = openGroupNodeStack.pop();
-            termEndNode = closeGroupNodeStack.pop();
+            termEndNode = groupEndNodeStack.pop();
+            groupStartNodeStack.pop();
+
             termBeginNode.addNextNode(termEndNode);
             termBeginNode = openNode;
-            groupStartNodeStack.pop();
             break;
           }
           case '[':
@@ -124,6 +127,7 @@ public class Regex {
       }
       // quantifier application (if present & applicable)
       if (processor.hasNext() && quantifierApplicable) {
+        // FIXME: refactor for better readability (explicitly create newEmptyNode here)
         termBeginNode = tryApplyQuantifier(processor, termBeginNode, termEndNode);
       } else {
         termBeginNode = termEndNode;
