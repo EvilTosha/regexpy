@@ -1,8 +1,5 @@
 package com.eviltosha.regexpy;
 
-/**
- *
- */
 class Range {
   Range() { reset(); }
 
@@ -18,13 +15,13 @@ class Range {
 
   int getBegin() { return myBegin; }
   int getEnd() { return myEnd; }
-  void setBegin(int begin) throws IllegalArgumentException {
+  void setBegin(final int begin) throws IllegalArgumentException {
     myBegin = begin;
     if (!checkConsistency()) {
       throw new IllegalArgumentException("Range begin > end");
     }
   }
-  void setEnd(int end) throws IllegalArgumentException {
+  void setEnd(final int end) throws IllegalArgumentException {
     myEnd = end;
     if (!checkConsistency()) {
       throw new IllegalArgumentException("Range begin > end");
@@ -50,11 +47,11 @@ class Range {
  * Subclass of Range that treats unset end as infinity
  */
 class InfinityRange extends Range {
-  boolean checkUpper(int num) {
+  boolean checkUpper(final int num) {
     return (!endIsSet() || getEnd() >= num);
   }
 
-  boolean checkLower(int num) {
+  boolean checkLower(final int num) {
     return (getBegin() <= num);
   }
 }
