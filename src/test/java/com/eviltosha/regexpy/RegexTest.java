@@ -465,6 +465,11 @@ public class RegexTest {
     Regex regex = new Regex("a*+");
   }
 
+  @Test(expected = RegexSyntaxException.class)
+  public void testRecallNonexistentGroup() {
+    Regex regex = new Regex("(ab)\\2");
+  }
+
   // Various tests
   @Test
   public void testEmailAddress() {

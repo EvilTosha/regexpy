@@ -3,10 +3,10 @@ package com.eviltosha.regexpy;
 import java.util.*;
 
 public class Matcher {
-  public Matcher(Node startNode, HashSet<Integer> groupIds) {
+  public Matcher(Node startNode, int numGroups) {
     myStartNode = startNode;
     myGroupRanges = new HashMap<Integer, Stack<Range>>();
-    for (int groupId: groupIds) {
+    for (int groupId = 0; groupId <= numGroups; ++groupId) {
       addGroup(groupId);
     }
     myLastVisitPositions = new HashMap<Node, Integer>();

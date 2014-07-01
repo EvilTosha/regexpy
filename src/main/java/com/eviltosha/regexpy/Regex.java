@@ -1,6 +1,5 @@
 package com.eviltosha.regexpy;
 
-import java.util.HashSet;
 import java.util.Stack;
 
 /**
@@ -14,14 +13,13 @@ public class Regex {
    */
   public Regex(String regex) throws RegexSyntaxException {
     myRegexString = regex;
-    myGroupIds = new HashSet<Integer>();
-    myGroupIds.add(0);
+    myNumGroups = 0;
     myStartNode = new OpenGroupNode(0);
     parse(regex);
   }
 
   public Matcher matcher() {
-    return new Matcher(myStartNode, myGroupIds);
+    return new Matcher(myStartNode, myNumGroups);
   }
 
   public boolean matches(String str) {
@@ -30,19 +28,21 @@ public class Regex {
 
   private final String myRegexString;
   private final Node myStartNode;
-  private final HashSet<Integer> myGroupIds;
+  private int myNumGroups;
 
   private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
     Node endNode = new EndNode();
     Node termBeginNode = myStartNode;
-    int groupId = 0;
+    int maxGroupRecallId = 0;
 
-    // TODO: write documentation for these stacks
+    // used for '|' operator, indicate beginning of current group
     Stack<Node> groupStartNodeStack = new Stack<Node>();
     groupStartNodeStack.push(myStartNode);
+    // used for '|' operator, indicate end of current group
     Stack<Node> groupEndNodeStack = new Stack<Node>();
     groupEndNodeStack.push(endNode);
+    // used for quantifiers, indicate position before the start of current group
     Stack<Node> openGroupNodeStack = new Stack<Node>();
 
     boolean escaped = false;
@@ -53,7 +53,7 @@ public class Regex {
         if (Character.isDigit(processor.peek())) {
           // group recall
           int groupRecallId = processor.nextNumber();
-          myGroupIds.add(groupRecallId);
+          maxGroupRecallId = Math.max(maxGroupRecallId, groupRecallId);
           termEndNode = new GroupRecallNode(groupRecallId);
         } else {
           // special escape sequences
@@ -85,16 +85,15 @@ public class Regex {
             quantifierApplicable = false;
             break;
           case '(': { // artificially create scope to reuse some variable names in other cases
-            ++groupId;
-            myGroupIds.add(groupId);
+            ++myNumGroups;
             // we store this OpenGroupNode, so after the group is closed quantifiers could use it
             // as a termBeginNode
             openGroupNodeStack.push(termBeginNode);
 
-            Node openNode = new OpenGroupNode(groupId);
+            Node openNode = new OpenGroupNode(myNumGroups);
             termBeginNode.addNextNode(openNode);
             // we create and store CloseGroupNode, so '|' could use it as the end of the group node
-            Node closeNode = new CloseGroupNode(groupId);
+            Node closeNode = new CloseGroupNode(myNumGroups);
             groupEndNodeStack.push(closeNode);
             // we store this EmptyNode, so '|' could use it as the start of the group node
             termEndNode = new EmptyNode();
@@ -155,6 +154,9 @@ public class Regex {
     }
     if (!openGroupNodeStack.empty()) {
       throw new RegexSyntaxException("Unpaired '('", myRegexString);
+    }
+    if (maxGroupRecallId > myNumGroups) {
+      throw new RegexSyntaxException("Recall of nonexistent group", myRegexString);
     }
     termBeginNode.addNextNode(endNode);
   }
