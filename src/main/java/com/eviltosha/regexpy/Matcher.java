@@ -13,7 +13,7 @@ public class Matcher {
     myVisitCounters = new HashMap<Node, Integer>();
   }
 
-  public boolean match(String str) {
+  public boolean matches(String str) {
     myLastString = str;
     clear();
     return myStartNode.matchMe(str, 0, this);

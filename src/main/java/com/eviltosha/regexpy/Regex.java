@@ -24,8 +24,8 @@ public class Regex {
     return new Matcher(myStartNode, myGroupIds);
   }
 
-  public boolean match(String str) {
-    return matcher().match(str);
+  public boolean matches(String str) {
+    return matcher().matches(str);
   }
 
   private final String myRegexString;
