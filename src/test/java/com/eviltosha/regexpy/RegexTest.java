@@ -355,6 +355,33 @@ public class RegexTest {
     assertFalse(matcher.match("02/09/206"));
   }
 
+  @Test
+  public void testSimpleAnchors() {
+    Regex regex = new Regex("^abc$");
+    assertTrue(regex.match("abc"));
+    assertFalse(regex.match("^abc$"));
+  }
+
+  @Test
+  public void testSimpleAnchorsFalse() {
+    Regex regex = new Regex("ab$cd");
+    assertFalse(regex.match("abcd"));
+  }
+
+  @Test
+  public void testUsefulDollarAnchor() {
+    Regex regex = new Regex("(b$|c)a*");
+    assertTrue(regex.match("b"));
+    assertFalse(regex.match("ba"));
+  }
+
+  @Test
+  public void testUsefulCapAnchor() {
+    Regex regex = new Regex("a*^c");
+    assertTrue(regex.match("c"));
+    assertFalse(regex.match("ac"));
+  }
+
   // Exceptions tests
 
   @Test(expected = RegexSyntaxException.class)
@@ -395,6 +422,11 @@ public class RegexTest {
   @Test(expected = RegexSyntaxException.class)
   public void testReverseCharRangeWithHyphen_2() {
     Regex regex = new Regex("[--+]");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testAnchorQuantifier() {
+    Regex regex = new Regex("^*");
   }
 
   @Test

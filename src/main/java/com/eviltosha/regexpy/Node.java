@@ -11,7 +11,7 @@ abstract class Node {
     myNextNodes = new ArrayList<Node>();
   }
 
-  protected final boolean checkVisit(String str, int strPos, Matcher matcher) {
+  protected final boolean checkAndVisit(String str, int strPos, Matcher matcher) {
     return (strPos <= str.length() && matcher.visitAndCheck(this, strPos));
   }
 
@@ -65,7 +65,7 @@ class CharRangeNode extends Node {
 
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (!checkAndVisit(str, strPos, matcher)) { return false; }
     if (strPos == str.length()) { return false; }
 
     boolean charFound = false;
@@ -96,7 +96,7 @@ class EmptyNode extends Node {
   }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    return (checkVisit(str, strPos, matcher) && matchNext(str, strPos, matcher));
+    return (checkAndVisit(str, strPos, matcher) && matchNext(str, strPos, matcher));
   }
 }
 
@@ -108,7 +108,7 @@ class OpenGroupNode extends EmptyNode {
 
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (!checkAndVisit(str, strPos, matcher)) { return false; }
     matcher.openGroup(myGroupId, strPos);
     if (matchNext(str, strPos, matcher)) {
       return true;
@@ -128,7 +128,7 @@ class CloseGroupNode extends EmptyNode {
 
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (!checkAndVisit(str, strPos, matcher)) { return false; }
     matcher.closeGroup(myGroupId, strPos);
     if (matchNext(str, strPos, matcher)) {
       return true;
@@ -159,7 +159,7 @@ class GroupRecallNode extends Node {
   }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    if (!checkVisit(str, strPos, matcher)) { return false; }
+    if (!checkAndVisit(str, strPos, matcher)) { return false; }
     Range range;
     try {
       range = matcher.getGroupRange(myGroupId);
@@ -189,7 +189,7 @@ class SymbolNode extends Node {
 
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    return (checkVisit(str, strPos, matcher) && strPos < str.length() &&
+    return (checkAndVisit(str, strPos, matcher) && strPos < str.length() &&
         str.charAt(strPos) == mySymbol && matchNext(str, strPos + 1, matcher));
   }
 
@@ -202,7 +202,7 @@ class AnySymbolNode extends Node {
   }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
-    return (checkVisit(str, strPos, matcher) && strPos < str.length() &&
+    return (checkAndVisit(str, strPos, matcher) && strPos < str.length() &&
         matchNext(str, strPos + 1, matcher));
   }
 }
@@ -231,4 +231,18 @@ class RangeQuantifierNode extends EmptyNode {
   // FIXME: use Range class
   private final InfinityRange myRange;
   private final Node myNextNode;
+}
+
+class AnchorStartStringNode extends EmptyNode {
+  @Override
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    return (checkAndVisit(str, strPos, matcher) && strPos == 0 && matchNext(str, strPos, matcher));
+  }
+}
+
+class AnchorEndStringNode extends EmptyNode {
+  @Override
+  protected boolean matchMe(String str, int strPos, Matcher matcher) {
+    return (checkAndVisit(str, strPos, matcher) && strPos == str.length() && matchNext(str, strPos, matcher));
+  }
 }

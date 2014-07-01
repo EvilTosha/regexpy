@@ -1,8 +1,6 @@
 package com.eviltosha.regexpy;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -58,7 +56,7 @@ public class Regex {
           myGroupIds.add(groupRecallId);
           termEndNode = new GroupRecallNode(groupRecallId);
         } else {
-          // special character ranges
+          // special escape sequences
           switch (processor.peek()) {
             case 'd':
             case 'D':
@@ -130,6 +128,16 @@ public class Regex {
           case '.':
             termEndNode = new AnySymbolNode();
             termBeginNode.addNextNode(termEndNode);
+            break;
+          case '^':
+            termEndNode = new AnchorStartStringNode();
+            termBeginNode.addNextNode(termEndNode);
+            quantifierApplicable = false;
+            break;
+          case '$':
+            termEndNode = new AnchorEndStringNode();
+            termBeginNode.addNextNode(termEndNode);
+            quantifierApplicable = false;
             break;
           default:
             termEndNode = new SymbolNode(ch);
