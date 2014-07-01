@@ -2,14 +2,13 @@ package com.eviltosha.regexpy;
 
 import java.util.ArrayList;
 import java.util.EmptyStackException;
+import java.util.List;
 
 /**
 *
 */
 abstract class Node {
-  Node() {
-    myNextNodes = new ArrayList<Node>();
-  }
+  Node() { }
 
   protected final boolean checkAndVisit(String str, int strPos, Matcher matcher) {
     return (strPos <= str.length() && matcher.visitAndCheck(this, strPos));
@@ -30,12 +29,12 @@ abstract class Node {
     myNextNodes.add(node);
   }
 
-  private final ArrayList<Node> myNextNodes;
+  private final List<Node> myNextNodes = new ArrayList<Node>();
 }
 
 class CharRangeNode extends Node {
   private static class CharRange {
-    char myBegin, myEnd;
+    final char myBegin, myEnd;
     CharRange(char begin, char end) throws IllegalArgumentException {
       if (begin > end) {
         throw new IllegalArgumentException("Char range begin > end");
@@ -48,17 +47,10 @@ class CharRangeNode extends Node {
     }
   }
 
-  CharRangeNode() {
-    super();
-    myCharRanges = new ArrayList<CharRange>();
-    myChars = new ArrayList<Character>();
-    myNegate = false;
-  }
+  CharRangeNode() { super(); }
 
   void setNegate(boolean negate) { myNegate = negate; }
-  void addChar(char ch) {
-    myChars.add(ch);
-  }
+  void addChar(char ch) { myChars.add(ch); }
   void addCharRange(char begin, char end) throws IllegalArgumentException {
     myCharRanges.add(new CharRange(begin, end));
   }
@@ -84,16 +76,13 @@ class CharRangeNode extends Node {
     return ((charFound ^ myNegate) && matchNext(str, strPos + 1, matcher));
   }
 
-  private final ArrayList<CharRange> myCharRanges;
-  private final ArrayList<Character> myChars;
-  // FIXME: this better be final
-  private boolean myNegate;
+  private final List<CharRange> myCharRanges = new ArrayList<CharRange>();
+  private final List<Character> myChars = new ArrayList<Character>();
+  private boolean myNegate = false;
 }
 
 class EmptyNode extends Node {
-  EmptyNode() {
-    super();
-  }
+  EmptyNode() { super(); }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
     return (checkAndVisit(str, strPos, matcher) && matchNext(str, strPos, matcher));
@@ -113,7 +102,7 @@ class OpenGroupNode extends EmptyNode {
     if (matchNext(str, strPos, matcher)) {
       return true;
     }
-    matcher.recoverOpenGroup(myGroupId);
+    matcher.undoOpenGroup(myGroupId);
     return false;
   }
 
@@ -133,7 +122,7 @@ class CloseGroupNode extends EmptyNode {
     if (matchNext(str, strPos, matcher)) {
       return true;
     }
-    matcher.recoverCloseGroup(myGroupId);
+    matcher.undoCloseGroup(myGroupId);
     return false;
   }
 
@@ -197,9 +186,7 @@ class SymbolNode extends Node {
 }
 
 class AnySymbolNode extends Node {
-  AnySymbolNode() {
-    super();
-  }
+  AnySymbolNode() { super(); }
   @Override
   protected boolean matchMe(String str, int strPos, Matcher matcher) {
     return (checkAndVisit(str, strPos, matcher) && strPos < str.length() &&
@@ -208,7 +195,6 @@ class AnySymbolNode extends Node {
 }
 
 class RangeQuantifierNode extends EmptyNode {
-  // FIXME: is it ok to use -1 as an indicator of infinity?
   RangeQuantifierNode(InfinityRange range, Node nextNode) {
     super();
     myRange = range;
@@ -228,7 +214,6 @@ class RangeQuantifierNode extends EmptyNode {
     return (myRange.checkLower(counter) && myNextNode.matchMe(str, strPos, matcher));
   }
 
-  // FIXME: use Range class
   private final InfinityRange myRange;
   private final Node myNextNode;
 }

@@ -1,7 +1,7 @@
 package com.eviltosha.regexpy;
 
 /**
- * Created by eviltosha on 6/26/14.
+ *
  */
 public class RegexSyntaxException extends IllegalArgumentException {
   // TODO: this exception should indicate position of error in string

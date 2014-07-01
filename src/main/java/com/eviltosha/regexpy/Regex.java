@@ -13,8 +13,6 @@ public class Regex {
    */
   public Regex(String regex) throws RegexSyntaxException {
     myRegexString = regex;
-    myNumGroups = 0;
-    myStartNode = new OpenGroupNode(0);
     parse(regex);
   }
 
@@ -27,8 +25,8 @@ public class Regex {
   }
 
   private final String myRegexString;
-  private final Node myStartNode;
-  private int myNumGroups;
+  private final Node myStartNode = new OpenGroupNode(0);
+  private int myNumGroups = 0;
 
   private void parse(String regex) throws RegexSyntaxException {
     RegexStringProcessor processor = new RegexStringProcessor(regex);
@@ -146,8 +144,11 @@ public class Regex {
       }
       // quantifier application (if present & applicable)
       if (processor.hasNext() && quantifierApplicable) {
-        // FIXME: refactor for better readability (explicitly create newEmptyNode here)
-        termBeginNode = tryApplyQuantifier(processor, termBeginNode, termEndNode);
+        Node exitNode = new EmptyNode();
+        if (!tryApplyQuantifier(processor, termBeginNode, termEndNode, exitNode)) {
+          termEndNode.addNextNode(exitNode);
+        }
+        termBeginNode = exitNode;
       } else {
         termBeginNode = termEndNode;
       }
@@ -262,38 +263,37 @@ public class Regex {
     return rangeNode;
   }
 
-  private Node tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode)
+  private boolean tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode, Node termEndNode, Node exitNode)
       throws RegexSyntaxException {
-    Node newEmptyNode = new EmptyNode();
     switch (processor.peek()) {
       case '{':
         processor.next();
         InfinityRange range = constructInfinityRange(processor);
         if (range.getBegin() == 0) {
-          termBeginNode.addNextNode(newEmptyNode);
+          termBeginNode.addNextNode(exitNode);
         }
-        RangeQuantifierNode rangeNode = new RangeQuantifierNode(range, newEmptyNode);
+        RangeQuantifierNode rangeNode = new RangeQuantifierNode(range, exitNode);
         termEndNode.addNextNode(rangeNode);
         rangeNode.addNextNode(termBeginNode);
         break;
       case '?':
         processor.next();
-        termBeginNode.addNextNode(newEmptyNode);
-        termEndNode.addNextNode(newEmptyNode);
+        termBeginNode.addNextNode(exitNode);
+        termEndNode.addNextNode(exitNode);
         break;
       case '*':
-        termBeginNode.addNextNode(newEmptyNode);
+        termBeginNode.addNextNode(exitNode);
         // fall through
       case '+':
         processor.next();
         termEndNode.addNextNode(termBeginNode);
+        termEndNode.addNextNode(exitNode);
         // fall through
       default:
         // don't eat char here, we'll process it later
-        termEndNode.addNextNode(newEmptyNode);
-        break;
+        return false;
     }
-    return newEmptyNode;
+    return true;
   }
 
   private InfinityRange constructInfinityRange(RegexStringProcessor processor) {

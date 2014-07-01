@@ -5,16 +5,12 @@ import java.util.*;
 public class Matcher {
   public Matcher(Node startNode, int numGroups) {
     myStartNode = startNode;
-    myGroupRanges = new HashMap<Integer, Stack<Range>>();
     for (int groupId = 0; groupId <= numGroups; ++groupId) {
       addGroup(groupId);
     }
-    myLastVisitPositions = new HashMap<Node, Integer>();
-    myVisitCounters = new HashMap<Node, Integer>();
   }
 
   public boolean matches(String str) {
-    myLastString = str;
     clear();
     return myStartNode.matchMe(str, 0, this);
   }
@@ -51,8 +47,7 @@ public class Matcher {
     myGroupRanges.get(groupId).push(range);
   }
 
-  // FIXME: bad name
-  public void recoverOpenGroup(int groupId) {
+  public void undoOpenGroup(int groupId) {
     myGroupRanges.get(groupId).pop();
   }
 
@@ -61,7 +56,7 @@ public class Matcher {
     myGroupRanges.get(groupId).peek().setEnd(strPos);
   }
 
-  public void recoverCloseGroup(int groupId) {
+  public void undoCloseGroup(int groupId) {
     myGroupRanges.get(groupId).peek().resetEnd();
   }
 
@@ -78,9 +73,8 @@ public class Matcher {
     myVisitCounters.clear();
   }
 
-  private final HashMap<Integer, Stack<Range>> myGroupRanges;
+  private final Map<Integer, Stack<Range>> myGroupRanges = new HashMap<Integer, Stack<Range>>();
   private final Node myStartNode;
-  private final HashMap<Node, Integer> myLastVisitPositions;
-  private final HashMap<Node, Integer> myVisitCounters;
-  private String myLastString;
+  private final Map<Node, Integer> myLastVisitPositions = new HashMap<Node, Integer>();
+  private final Map<Node, Integer> myVisitCounters = new HashMap<Node, Integer>();
 }

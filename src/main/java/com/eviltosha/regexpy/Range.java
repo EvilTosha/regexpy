@@ -4,7 +4,6 @@ package com.eviltosha.regexpy;
  *
  */
 class Range {
-  // FIXME: is it ok to use -1 as infinity/not set indicator?
   Range() { reset(); }
 
   void reset() {
@@ -48,7 +47,7 @@ class Range {
 }
 
 /**
- * Subclass of Range that treats not set end as infinity
+ * Subclass of Range that treats unset end as infinity
  */
 class InfinityRange extends Range {
   boolean checkUpper(int num) {

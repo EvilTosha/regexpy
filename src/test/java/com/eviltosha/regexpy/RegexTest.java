@@ -25,11 +25,11 @@ public class RegexTest {
 
   @Test
   public void testExactString() {
-    Regex regex = new Regex("abacaba");
+    Regex regex = new Regex("aba caba");
     Matcher matcher = regex.matcher();
-    assertTrue(matcher.matches("abacaba"));
-    assertFalse(matcher.matches("abacab"));
-    assertFalse(matcher.matches("abadaba"));
+    assertTrue(matcher.matches("aba caba"));
+    assertFalse(matcher.matches("abacaba"));
+    assertFalse(matcher.matches("aba daba"));
   }
 
   @Test
@@ -99,14 +99,14 @@ public class RegexTest {
 
   @Test
   public void testSimpleOr() {
-    Regex regex = new Regex("a|b");
+    Regex regex = new Regex("ab|cd");
     Matcher matcher = regex.matcher();
-    assertTrue(matcher.matches("a"));
-    assertTrue(matcher.matches("b"));
+    assertTrue(matcher.matches("ab"));
+    assertTrue(matcher.matches("cd"));
     assertFalse(matcher.matches(""));
-    assertFalse(matcher.matches("ab"));
-    assertFalse(matcher.matches("a|b"));
-    assertFalse(matcher.matches("aa"));
+    assertFalse(matcher.matches("b"));
+    assertFalse(matcher.matches("ab|cd"));
+    assertFalse(matcher.matches("abab"));
   }
 
   @Test
@@ -336,6 +336,12 @@ public class RegexTest {
   }
 
   @Test
+  public void testBackslashEscape() {
+    Regex regex = new Regex("\\\\");
+    assertTrue(regex.matches("\\"));
+  }
+
+  @Test
   public void testCloseSquareBracket() {
     Regex regex = new Regex("(])");
     Matcher matcher = regex.matcher();
@@ -416,6 +422,16 @@ public class RegexTest {
   }
 
   @Test(expected = RegexSyntaxException.class)
+  public void testEmptyRangeQuantifier() {
+    Regex regex = new Regex("a{}");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
+  public void testCharsInsideRangeQuantifier() {
+    Regex regex = new Regex("a{2,a3}");
+  }
+
+  @Test(expected = RegexSyntaxException.class)
   public void testUnclosedOpenGroup() {
     Regex regex = new Regex("a(");
   }
@@ -476,5 +492,20 @@ public class RegexTest {
     Regex regex = new Regex("[a-zA-Z0-9_.-]+@[a-zA-Z_]+\\.[a-zA-Z]{2,6}");
     assertTrue(regex.matches("some-email@example.com"));
     assertFalse(regex.matches("someEmail@examplecom"));
+  }
+
+  @Test
+  public void testTrickyCharRange() {
+    Regex regex = new Regex("[a[^b]]");
+    assertTrue(regex.matches("[]"));
+    assertTrue(regex.matches("^]"));
+    assertTrue(regex.matches("b]"));
+  }
+
+  @Test
+  public void testHtmlTag() {
+    Regex regex = new Regex("\\</?[^>]+\\>");
+    assertTrue(regex.matches("<p>"));
+    assertTrue(regex.matches("</body>"));
   }
 }
