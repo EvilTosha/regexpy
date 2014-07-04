@@ -2,10 +2,10 @@ package com.eviltosha.regexpy;
 
 public class RegexSyntaxException extends IllegalArgumentException {
   // TODO: this exception should indicate position of error in string
-  private final String myDesc;
-  private final String myRegex;
+  private String myDesc;
+  private String myRegex;
 
-  public RegexSyntaxException(final String desc, final String regex) {
+  public RegexSyntaxException(String desc, String regex) {
     myDesc = desc;
     myRegex = regex;
   }

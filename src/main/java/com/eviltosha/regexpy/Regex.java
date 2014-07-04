@@ -6,7 +6,11 @@ import java.util.Stack;
  * Class for storing compiled representation of the regular expression.
  */
 public class Regex {
-  public Regex(final String regex) throws RegexSyntaxException {
+  private String myRegexString;
+  private Node myStartNode = new OpenGroupNode(0);
+  private int myNumGroups = 0;
+
+  public Regex(String regex) throws RegexSyntaxException {
     myRegexString = regex;
     parse(regex);
   }
@@ -17,44 +21,47 @@ public class Regex {
   }
 
   /** Matches regex against String without explicitly using Matcher object. */
-  public boolean matches(final String str) {
+  public boolean matches(String str) {
     return matcher().matches(str);
   }
 
-  private final String myRegexString;
-  private final Node myStartNode = new OpenGroupNode(0);
-  private int myNumGroups = 0;
-
-  /** Constructs graph representation of regex */
   // TODO: grammar-based parser
-  private void parse(final String regex) throws RegexSyntaxException {
-    final RegexStringProcessor processor = new RegexStringProcessor(regex);
-    final Node endNode = new EndNode();
+  /** Constructs graph representation of regex */
+  private void parse(String regex) throws RegexSyntaxException {
+    RegexStringProcessor processor = new RegexStringProcessor(regex);
+    Node endNode = new EndNode();
     Node termBeginNode = myStartNode;
     int maxGroupRecallId = 0;
 
-    // used for '|' operator, indicate the beginning of current group
-    final Stack<Node> groupStartNodeStack = new Stack<Node>();
-    // myStartNode and endNode represent group zero (matching whole string)
-    groupStartNodeStack.push(myStartNode);
-    // used for '|' operator, indicate the end of current group
-    final Stack<Node> groupEndNodeStack = new Stack<Node>();
-    groupEndNodeStack.push(endNode);
-    // used for quantifiers, indicate position before the start of current group
-    final Stack<Node> openGroupNodeStack = new Stack<Node>();
+    /* used for '|' operator, indicate the beginning of current group */
+    Stack<Node> groupStartNodeStack = new Stack<Node>();
 
+    /* myStartNode and endNode represent group zero (matching whole string) */
+    groupStartNodeStack.push(myStartNode);
+
+    /* used for '|' operator, indicate the end of current group */
+    Stack<Node> groupEndNodeStack = new Stack<Node>();
+    groupEndNodeStack.push(endNode);
+
+    /* used for quantifiers, indicate position before the start of current group */
+    Stack<Node> openGroupNodeStack = new Stack<Node>();
     boolean escaped = false;
+
     while (processor.hasNext()) {
       Node termEndNode;
       boolean quantifierApplicable = true;
+
       if (escaped) {
         if (Character.isDigit(processor.peek())) {
-          // group recall
-          final int groupRecallId = processor.nextNumber();
+
+          /* group recall */
+          int groupRecallId = processor.nextNumber();
+
           maxGroupRecallId = Math.max(maxGroupRecallId, groupRecallId);
           termEndNode = new GroupRecallNode(groupRecallId);
         } else {
-          // special escape sequences
+
+          /* special escape sequences */
           switch (processor.peek()) {
             case 'd':
             case 'D':
@@ -63,7 +70,6 @@ public class Regex {
               termEndNode = constructSpecialCharRange(processor.next());
               break;
             default:
-              // FIXME: if escaped character is not special, exception should be thrown
               termEndNode = new SymbolNode(processor.next());
               break;
           }
@@ -71,7 +77,7 @@ public class Regex {
         termBeginNode.addNextNode(termEndNode);
         escaped = false;
       } else {
-        final char ch = processor.next();
+        char ch = processor.next();
         switch (ch) {
           case '{':
           case '*':
@@ -84,14 +90,10 @@ public class Regex {
             break;
           case '(':
             ++myNumGroups;
-            // we store this OpenGroupNode, so after the group is closed quantifiers could use it
-            // as a termBeginNode
             openGroupNodeStack.push(termBeginNode);
-            final Node openNode = new OpenGroupNode(myNumGroups);
+            Node openNode = new OpenGroupNode(myNumGroups);
             termBeginNode.addNextNode(openNode);
-            // we create and store CloseGroupNode, so '|' could use it as the end of the group node
             groupEndNodeStack.push(new CloseGroupNode(myNumGroups));
-            // we store this EmptyNode, so '|' could use it as the start of the group node
             termEndNode = new EmptyNode();
             groupStartNodeStack.push(termEndNode);
             openNode.addNextNode(termEndNode);
@@ -135,9 +137,10 @@ public class Regex {
             break;
         }
       }
-      // quantifier application (if present & applicable)
+
+      /* quantifier application (if present & applicable) */
       if (processor.hasNext() && quantifierApplicable) {
-        final Node exitNode = new EmptyNode();
+        Node exitNode = new EmptyNode();
         if (!tryApplyQuantifier(processor, termBeginNode, termEndNode, exitNode)) {
           termEndNode.addNextNode(exitNode);
         }
@@ -155,23 +158,32 @@ public class Regex {
     termBeginNode.addNextNode(endNode);
   }
 
-  private Node constructCharRangeNode(final RegexStringProcessor processor) {
-    final CharRangeNode charRangeNode = new CharRangeNode();
-    // first characters that need special treatment: '^' (negates range),
-    // '-' (in first position it acts like literal hyphen, also can be part of a range),
-    // ']' (in first position it acts like literal closing square bracket, also can be part of a range)
+  private Node constructCharRangeNode(RegexStringProcessor processor) {
+    CharRangeNode charRangeNode = new CharRangeNode();
+
+    /*
+     * first characters that need special treatment: '^' (negates range),
+     * '-' (in first position it acts like literal hyphen, also can be part of a range),
+     * ']' (in first position it acts like literal closing square bracket, also can be part of a range)
+     */
     char ch = processor.next();
+
     if (ch == '^') {
       charRangeNode.setNegate(true);
-      // we need to perform the first character analysis once more (for special '-' and ']' cases)
+
+      /* we need to perform the first character analysis once more (for special '-' and ']' cases) */
       ch = processor.next();
     }
-    // we store parsed char,
-    // if the next char is not '-', we add it as a char, otherwise construct range
-    // if storedChar == null, we don't have any char stored
+
+    /*
+     * we store parsed char,
+     * if the next char is not '-', we add it as a char, otherwise construct range
+     * if storedChar == null, we don't have any char stored
+     */
     Character storedChar = ch;
     boolean asRange = false;
-    // flag of completion
+
+    /* flag of completion */
     boolean charRangeFinished = false;
     while (processor.hasNext() && !charRangeFinished) {
       ch = processor.next();
@@ -179,7 +191,8 @@ public class Regex {
         case ']':
           if (storedChar != null) {
             charRangeNode.addChar(storedChar);
-            // if '-' stands right before the closing bracket it's treated as literal '-'
+
+            /* if '-' stands right before the closing bracket it's treated as literal '-' */
             if (asRange) {
               charRangeNode.addChar('-');
             }
@@ -187,8 +200,9 @@ public class Regex {
           charRangeFinished = true;
           break;
         case '-':
-          if (storedChar == null || asRange) {
-            // check whether it's the last char in group (like in "[a--]")
+          if ((storedChar == null) || asRange) {
+
+            /* check whether it's the last char in group (like in "[a--]") */
             if (processor.next() == ']') {
               if (asRange) {
                 try {
@@ -218,7 +232,8 @@ public class Regex {
             } else {
               charRangeNode.addChar(storedChar);
               storedChar = ch;
-              // charIsStored remains true
+
+              /* charIsStored remains true */
             }
           } else {
             storedChar = ch;
@@ -235,18 +250,18 @@ public class Regex {
 
   /** Constructs special char range (\d, \D, \s or \S) by provided char code of the range (d, D, s or S) */
   // TODO: add remaining ranges
-  private Node constructSpecialCharRange(final char rangeId) {
-    final CharRangeNode rangeNode = new CharRangeNode();
+  private Node constructSpecialCharRange(char rangeId) {
+    CharRangeNode rangeNode = new CharRangeNode();
     switch (rangeId) {
       case 'D':
         rangeNode.setNegate(true);
-        // fall through
+        /* fall through */
       case 'd':
         rangeNode.addCharRange('0', '9');
       break;
       case 'S':
         rangeNode.setNegate(true);
-        // fall through
+        /* fall through */
       case 's':
         rangeNode.addChar('\r');
         rangeNode.addChar('\n');
@@ -259,13 +274,13 @@ public class Regex {
   }
 
   /** If the quantifier present in the string, construct required nodes and connections for it */
-  private boolean tryApplyQuantifier(final RegexStringProcessor processor, final Node termBeginNode,
-                                     final Node termEndNode, final Node exitNode)
+  private boolean tryApplyQuantifier(RegexStringProcessor processor, Node termBeginNode,
+                                     Node termEndNode, Node exitNode)
       throws RegexSyntaxException {
     switch (processor.peek()) {
       case '{':
         processor.next();
-        final InfinityRange range = constructInfinityRange(processor);
+        InfinityRange range = constructInfinityRange(processor);
         if (range.getBegin() == 0) {
           termBeginNode.addNextNode(exitNode);
         }
@@ -280,22 +295,23 @@ public class Regex {
         break;
       case '*':
         termBeginNode.addNextNode(exitNode);
-        // fall through
+        /* fall through */
       case '+':
         processor.next();
         termEndNode.addNextNode(termBeginNode);
         termEndNode.addNextNode(exitNode);
         break;
       default:
-        // don't eat char here, we'll process it later
+
+        /* don't eat char here, we'll process it later */
         return false;
     }
     return true;
   }
 
   /** Parses range quantifier expression and constructs the InfinityRange for it */
-  private InfinityRange constructInfinityRange(final RegexStringProcessor processor) {
-    final InfinityRange range = new InfinityRange();
+  private InfinityRange constructInfinityRange(RegexStringProcessor processor) {
+    InfinityRange range = new InfinityRange();
     range.setBegin(processor.nextNumber());
     switch (processor.next()) {
       case ',':

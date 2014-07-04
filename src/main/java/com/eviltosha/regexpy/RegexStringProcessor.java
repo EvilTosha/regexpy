@@ -2,12 +2,13 @@ package com.eviltosha.regexpy;
 
 import java.util.Iterator;
 
-/**
-*
-*/
-// FIXME: probably java.util.Scanner or another standard Character iterator can be used instead of this class
-// Class for processing string representation of regex
+
+// TODO: probably java.util.Scanner or another standard Character iterator can be used instead of this class
+/** Class for processing string representation of regex */
 class RegexStringProcessor implements Iterator<Character> {
+  private String myRegex;
+  private int myPos; // char at myPos at any given moment is not processed yet
+
   public RegexStringProcessor(String regex) {
     myRegex = regex;
     myPos = 0;
@@ -50,7 +51,4 @@ class RegexStringProcessor implements Iterator<Character> {
   public void remove()  {
     throw new RegexSyntaxException("Can't remove elements of regex string", myRegex);
   }
-
-  private final String myRegex;
-  private int myPos; // char at myPos is not processed yet
 }
